@@ -1,0 +1,10 @@
+[tool.pyrefly]
+# Exclude virtual/in-memory files that Pyrefly creates internally.
+# These are not real project files and produce false-positive parse errors.
+exclude = [
+    "**/__pyrefly_virtual__/**",
+    "C:/__pyrefly_virtual__/**",
+    "c:/__pyrefly_virtual__/**",
+    "C:\\__pyrefly_virtual__\\**",
+    "c:\\__pyrefly_virtual__\\**"
+]

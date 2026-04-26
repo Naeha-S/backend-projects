@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  loadbalancer:
+    build: .
+    ports:
+      - "8080:8080"
+    # By default, load_balancer.py starts mock backends on its localhost (the container's loopback).
+    # Those ports will be accessible within the container, which is precisely how the LB proxies requests.
+    restart: unless-stopped
