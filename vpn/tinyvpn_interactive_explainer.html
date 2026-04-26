@@ -1,0 +1,398 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
+:root{--green:#00e676;--green-dim:#00b557;--teal:#1de9b6;--amber:#ffab00;--red:#ff5252;--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--muted:#7d8590;--text:#e6edf3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+
+.root{padding:28px 24px;max-width:680px}
+
+/* HERO */
+.hero{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:20px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(0,230,118,.06) 0%,transparent 70%)}
+.tag{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.2);border-radius:4px;padding:3px 8px;margin-bottom:14px;letter-spacing:.05em}
+.dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+h1{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;line-height:1.2;letter-spacing:-.02em;margin-bottom:8px}
+h1 span{color:var(--green)}
+.sub{color:var(--muted);font-size:14px;line-height:1.6;max-width:520px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;font-weight:600;letter-spacing:.04em}
+.b-py{background:rgba(55,118,179,.15);color:#79b8ff;border:1px solid rgba(55,118,179,.3)}
+.b-tun{background:rgba(29,233,182,.1);color:var(--teal);border:1px solid rgba(29,233,182,.2)}
+.b-aes{background:rgba(255,171,0,.1);color:var(--amber);border:1px solid rgba(255,171,0,.2)}
+.b-li{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+
+/* TUNNEL VIZ */
+.tunnel-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.tunnel-label{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
+.tunnel-svg{width:100%;display:block}
+
+/* PACKET ANIM */
+@keyframes fly{0%{transform:translateX(0);opacity:0}5%{opacity:1}90%{opacity:1}100%{transform:translateX(460px);opacity:0}}
+@keyframes fly-enc{0%{transform:translateX(0);opacity:0}5%{opacity:1}90%{opacity:1}100%{transform:translateX(280px);opacity:0}}
+.pkt{animation:fly 2.4s cubic-bezier(.4,0,.2,1) infinite}
+.pkt-enc{animation:fly-enc 2.4s cubic-bezier(.4,0,.2,1) infinite 0.3s}
+
+/* STEPS */
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.step{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+.step:hover{border-color:var(--green-dim)}
+.step.active{border-color:var(--green);background:rgba(0,230,118,.04)}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);font-weight:700;letter-spacing:.05em;margin-bottom:6px}
+.step-title{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.5}
+.step-icon{position:absolute;top:14px;right:14px;font-size:16px;opacity:.6}
+
+/* CODE */
+.code-wrap{background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.code-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.code-filename{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+.code-tabs{display:flex;gap:0}
+.code-tab{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 14px;cursor:pointer;color:var(--muted);border:none;background:none;border-bottom:2px solid transparent;transition:all .15s}
+.code-tab.active{color:var(--green);border-bottom-color:var(--green)}
+.code-body{padding:20px;overflow-x:auto;max-height:380px;overflow-y:auto}
+pre{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;white-space:pre}
+.kw{color:#ff7b72}.fn{color:#d2a8ff}.str{color:#a5d6ff}.num{color:#f8c58a}.cm{color:#8b949e}.cls{color:#ffa657}.op{color:#79c0ff}.var{color:var(--text)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green);line-height:1}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.03em}
+
+/* TERMINAL */
+.term{background:#000;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.term-bar{background:var(--bg3);padding:8px 14px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
+.term-dot{width:10px;height:10px;border-radius:50%}
+.term-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:8px;flex:1}
+.term-body{padding:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8}
+.t-prompt{color:var(--green)}.t-cmd{color:var(--text)}.t-out{color:var(--muted)}.t-enc{color:var(--amber)}.t-ok{color:var(--teal)}
+
+/* ARCH */
+.arch{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+
+/* CTA */
+.cta{background:linear-gradient(135deg,rgba(0,230,118,.08) 0%,rgba(29,233,182,.05) 100%);border:1px solid rgba(0,230,118,.2);border-radius:12px;padding:24px;text-align:center}
+.cta h3{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;margin-bottom:8px}
+.cta p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px}
+.cta-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.btn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:10px 22px;border-radius:6px;cursor:pointer;border:none;transition:all .15s}
+.btn-main{background:var(--green);color:#000}
+.btn-main:hover{background:#00ff85}
+.btn-sec{background:transparent;color:var(--green);border:1px solid rgba(0,230,118,.35)}
+.btn-sec:hover{background:rgba(0,230,118,.08)}
+</style>
+
+<div class="root">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="tag"><span class="dot-live"></span>OPEN SOURCE PROJECT</div>
+  <h1>tiny<span>vpn</span>.py</h1>
+  <p class="sub">A 200-line VPN from scratch. Raw TUN interfaces. AES-256 encryption. The exact mechanism behind every commercial VPN — distilled to one afternoon of Python.</p>
+  <div class="badges">
+    <span class="badge b-py">Python 3.10+</span>
+    <span class="badge b-tun">TUN / TAP</span>
+    <span class="badge b-aes">AES-256-GCM</span>
+    <span class="badge b-li">~200 lines</span>
+    <span class="badge b-li">Linux / macOS</span>
+  </div>
+</div>
+
+<!-- LIVE TUNNEL VIZ -->
+<div class="tunnel-wrap">
+  <div class="tunnel-label">live tunnel — packets in flight</div>
+  <svg class="tunnel-svg" viewBox="0 0 620 110">
+    <!-- Machine A -->
+    <rect x="0" y="30" width="90" height="50" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <text font-family="JetBrains Mono,monospace" font-size="10" fill="#00e676" x="45" y="51" text-anchor="middle" font-weight="700">Machine A</text>
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="45" y="66" text-anchor="middle">10.0.0.1</text>
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="45" y="78" text-anchor="middle">tun0</text>
+
+    <!-- Arrow line (plaintext) -->
+    <line x1="90" y1="55" x2="180" y2="55" stroke="#30363d" stroke-width="1.5"/>
+    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#7d8590" x="135" y="48" text-anchor="middle">plain IP pkt</text>
+
+    <!-- Encrypt box -->
+    <rect x="180" y="30" width="80" height="50" rx="8" fill="#1a1200" stroke="#ffab00" stroke-width="1"/>
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#ffab00" x="220" y="53" text-anchor="middle" font-weight="700">ENCRYPT</text>
+    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#8b7000" x="220" y="66" text-anchor="middle">AES-256-GCM</text>
+
+    <!-- UDP tunnel -->
+    <rect x="260" y="40" width="100" height="30" rx="6" fill="#0a1628" stroke="#1f4080" stroke-width="1"/>
+    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#79b8ff" x="310" y="58" text-anchor="middle">UDP tunnel :8888</text>
+
+    <!-- Decrypt box -->
+    <rect x="360" y="30" width="80" height="50" rx="8" fill="#001a12" stroke="#1de9b6" stroke-width="1"/>
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#1de9b6" x="400" y="53" text-anchor="middle" font-weight="700">DECRYPT</text>
+    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#0a7050" x="400" y="66" text-anchor="middle">verify AEAD tag</text>
+
+    <!-- Arrow line -->
+    <line x1="440" y1="55" x2="530" y2="55" stroke="#30363d" stroke-width="1.5"/>
+    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#7d8590" x="485" y="48" text-anchor="middle">plain IP pkt</text>
+
+    <!-- Machine B -->
+    <rect x="530" y="30" width="90" height="50" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <text font-family="JetBrains Mono,monospace" font-size="10" fill="#00e676" x="575" y="51" text-anchor="middle" font-weight="700">Machine B</text>
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="575" y="66" text-anchor="middle">10.0.0.2</text>
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="575" y="78" text-anchor="middle">tun0</text>
+
+    <!-- Animated plain packet -->
+    <g class="pkt" transform="translate(90,0)">
+      <rect x="0" y="47" width="36" height="16" rx="3" fill="#1e3a5f" stroke="#79b8ff" stroke-width=".8"/>
+      <text font-family="JetBrains Mono,monospace" font-size="7" fill="#a5d6ff" x="18" y="58" text-anchor="middle">PKT</text>
+    </g>
+
+    <!-- Animated encrypted packet -->
+    <g class="pkt-enc" transform="translate(270,0)">
+      <rect x="0" y="47" width="52" height="16" rx="3" fill="#2a1a00" stroke="#ffab00" stroke-width=".8"/>
+      <text font-family="JetBrains Mono,monospace" font-size="7" fill="#ffab00" x="26" y="58" text-anchor="middle">🔒 ciphertext</text>
+    </g>
+
+    <!-- Internet label -->
+    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#30363d" x="310" y="100" text-anchor="middle">— public internet —</text>
+  </svg>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat"><div class="stat-val">~200</div><div class="stat-label">lines of Python</div></div>
+  <div class="stat"><div class="stat-val">256</div><div class="stat-label">bit AES-GCM key</div></div>
+  <div class="stat"><div class="stat-val">&lt;1ms</div><div class="stat-label">encrypt overhead</div></div>
+</div>
+
+<!-- HOW IT WORKS STEPS -->
+<div class="steps">
+  <div class="step active" onclick="setStep(0)" id="s0">
+    <div class="step-num">01 — KERNEL</div>
+    <div class="step-title">Open a TUN device</div>
+    <div class="step-desc">Create a virtual network interface. The OS routes packets through it — no drivers needed.</div>
+    <div class="step-icon">⚙</div>
+  </div>
+  <div class="step" onclick="setStep(1)" id="s1">
+    <div class="step-num">02 — READ</div>
+    <div class="step-title">Intercept raw IP packets</div>
+    <div class="step-desc">Read() from the TUN file descriptor gives you the raw IP packet — Ethernet header stripped.</div>
+    <div class="step-icon">📦</div>
+  </div>
+  <div class="step" onclick="setStep(2)" id="s2">
+    <div class="step-num">03 — ENCRYPT</div>
+    <div class="step-title">AES-256-GCM seal</div>
+    <div class="step-desc">Seal the packet with a random nonce. GCM gives you authenticated encryption — tampering detected.</div>
+    <div class="step-icon">🔐</div>
+  </div>
+  <div class="step" onclick="setStep(3)" id="s3">
+    <div class="step-num">04 — TUNNEL</div>
+    <div class="step-title">Send over UDP</div>
+    <div class="step-desc">Wrap ciphertext in UDP. The other side decrypts and writes back to its TUN — packet re-emerges.</div>
+    <div class="step-icon">🌐</div>
+  </div>
+</div>
+
+<!-- CODE PANEL -->
+<div class="code-wrap">
+  <div class="code-header">
+    <div class="code-tabs">
+      <button class="code-tab active" onclick="setTab('server')">server.py</button>
+      <button class="code-tab" onclick="setTab('client')">client.py</button>
+      <button class="code-tab" onclick="setTab('tun')">tun.py</button>
+    </div>
+    <span class="code-filename" id="tab-file">tinyvpn/server.py</span>
+  </div>
+  <div class="code-body">
+    <pre id="code-pre"></pre>
+  </div>
+</div>
+
+<!-- TERMINAL -->
+<div class="term">
+  <div class="term-bar">
+    <div class="term-dot" style="background:#ff5f57"></div>
+    <div class="term-dot" style="background:#ffbd2e"></div>
+    <div class="term-dot" style="background:#28ca41"></div>
+    <div class="term-title">root@server — tinyvpn</div>
+  </div>
+  <div class="term-body">
+    <div><span class="t-prompt">$ </span><span class="t-cmd">python3 server.py --key $(openssl rand -hex 32)</span></div>
+    <div><span class="t-out">[*] TUN interface tun0 up — 10.0.0.1/24</span></div>
+    <div><span class="t-out">[*] Listening on UDP :8888</span></div>
+    <div><span class="t-ok">[+] Peer connected: 203.0.113.42:49231</span></div>
+    <div><span class="t-enc">[~] RX  68B → decrypt → 40B → write tun0</span></div>
+    <div><span class="t-enc">[~] TX  40B → encrypt → 68B → send UDP</span></div>
+    <div><span class="t-enc">[~] RX 128B → decrypt → 96B → write tun0</span></div>
+    <div><span class="t-ok">[+] 14 packets tunneled, 0 auth failures</span></div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta">
+  <h3>ship your own VPN in an afternoon</h3>
+  <p>Every commercial VPN — WireGuard, OpenVPN, Tailscale — runs this same loop at its core.<br>Now you understand the whole stack, not just the product.</p>
+  <div class="cta-btns">
+    <button class="btn btn-main" onclick="sendPrompt('Generate the complete tinyvpn Python project — server.py, client.py, tun.py, and a README — all runnable code')">Generate full project ↗</button>
+    <button class="btn btn-sec" onclick="sendPrompt('Explain how WireGuard differs from what tinyvpn does — what makes WireGuard production-grade?')">How WireGuard improves this ↗</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const codes = {
+  server: `<span class="cm">#!/usr/bin/env python3</span>
+<span class="cm">"""tinyvpn — server side. Run as root."""</span>
+<span class="kw">import</span> <span class="var">socket, threading, argparse</span>
+<span class="kw">from</span> <span class="var">cryptography.hazmat.primitives.ciphers.aead</span> <span class="kw">import</span> <span class="cls">AESGCM</span>
+<span class="kw">from</span> <span class="var">tun</span> <span class="kw">import</span> <span class="fn">open_tun</span>, <span class="fn">configure_iface</span>
+<span class="kw">import</span> <span class="var">os</span>
+
+<span class="kw">def</span> <span class="fn">tun_to_udp</span>(<span class="var">tun_fd</span>, <span class="var">sock</span>, <span class="var">aes</span>, <span class="var">peer</span>):
+    <span class="cm">"""Read raw IP packets from TUN, encrypt, send UDP."""</span>
+    <span class="kw">while</span> <span class="kw">True</span>:
+        <span class="var">packet</span> = <span class="var">os</span>.<span class="fn">read</span>(<span class="var">tun_fd</span>, <span class="num">65535</span>)
+        <span class="var">nonce</span>  = <span class="var">os</span>.<span class="fn">urandom</span>(<span class="num">12</span>)          <span class="cm"># 96-bit random nonce</span>
+        <span class="var">cipher</span> = <span class="var">aes</span>.<span class="fn">encrypt</span>(<span class="var">nonce</span>, <span class="var">packet</span>, <span class="kw">None</span>)
+        <span class="var">sock</span>.<span class="fn">sendto</span>(<span class="var">nonce</span> + <span class="var">cipher</span>, <span class="var">peer</span>)  <span class="cm"># nonce prepended</span>
+
+<span class="kw">def</span> <span class="fn">udp_to_tun</span>(<span class="var">tun_fd</span>, <span class="var">sock</span>, <span class="var">aes</span>):
+    <span class="cm">"""Receive UDP, authenticate+decrypt, inject into TUN."""</span>
+    <span class="kw">while</span> <span class="kw">True</span>:
+        <span class="var">data</span>, <span class="var">addr</span> = <span class="var">sock</span>.<span class="fn">recvfrom</span>(<span class="num">65535</span>)
+        <span class="kw">try</span>:
+            <span class="var">nonce</span>, <span class="var">cipher</span> = <span class="var">data</span>[:<span class="num">12</span>], <span class="var">data</span>[<span class="num">12</span>:]
+            <span class="var">packet</span> = <span class="var">aes</span>.<span class="fn">decrypt</span>(<span class="var">nonce</span>, <span class="var">cipher</span>, <span class="kw">None</span>)
+            <span class="var">os</span>.<span class="fn">write</span>(<span class="var">tun_fd</span>, <span class="var">packet</span>)
+        <span class="kw">except</span> <span class="cls">Exception</span>:
+            <span class="fn">print</span>(<span class="str">"[!] auth failure — packet dropped"</span>)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    <span class="var">p</span> = <span class="cls">argparse</span>.<span class="fn">ArgumentParser</span>()
+    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--key"</span>, <span class="var">required</span>=<span class="kw">True</span>)
+    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--port"</span>, <span class="var">type</span>=<span class="var">int</span>, <span class="var">default</span>=<span class="num">8888</span>)
+    <span class="var">args</span> = <span class="var">p</span>.<span class="fn">parse_args</span>()
+
+    <span class="var">key</span> = <span class="var">bytes</span>.<span class="fn">fromhex</span>(<span class="var">args</span>.<span class="var">key</span>)   <span class="cm"># 32 bytes = AES-256</span>
+    <span class="var">aes</span> = <span class="cls">AESGCM</span>(<span class="var">key</span>)
+    <span class="var">tun</span> = <span class="fn">open_tun</span>(<span class="str">"tun0"</span>)
+    <span class="fn">configure_iface</span>(<span class="str">"tun0"</span>, <span class="str">"10.0.0.1"</span>, <span class="str">"10.0.0.0/24"</span>)
+
+    <span class="var">sock</span> = <span class="var">socket</span>.<span class="fn">socket</span>(<span class="var">socket</span>.<span class="cls">AF_INET</span>, <span class="var">socket</span>.<span class="cls">SOCK_DGRAM</span>)
+    <span class="var">sock</span>.<span class="fn">bind</span>((<span class="str">""</span>, <span class="var">args</span>.<span class="var">port</span>))
+    <span class="fn">print</span>(<span class="str">f"[*] Listening on UDP :{args.port}"</span>)
+
+    <span class="cm"># Wait for first packet to learn peer address</span>
+    <span class="var">data</span>, <span class="var">peer</span> = <span class="var">sock</span>.<span class="fn">recvfrom</span>(<span class="num">1</span>)
+    <span class="fn">print</span>(<span class="str">f"[+] Peer: {peer}"</span>)
+
+    <span class="cls">threading</span>.<span class="cls">Thread</span>(<span class="var">target</span>=<span class="fn">tun_to_udp</span>,
+        <span class="var">args</span>=(<span class="var">tun</span>, <span class="var">sock</span>, <span class="var">aes</span>, <span class="var">peer</span>), <span class="var">daemon</span>=<span class="kw">True</span>).<span class="fn">start</span>()
+    <span class="fn">udp_to_tun</span>(<span class="var">tun</span>, <span class="var">sock</span>, <span class="var">aes</span>)
+
+<span class="kw">if</span> <span class="var">__name__</span> == <span class="str">"__main__"</span>: <span class="fn">main</span>()`,
+
+  client: `<span class="cm">#!/usr/bin/env python3</span>
+<span class="cm">"""tinyvpn — client side. Run as root."""</span>
+<span class="kw">import</span> <span class="var">socket, threading, argparse</span>
+<span class="kw">from</span> <span class="var">cryptography.hazmat.primitives.ciphers.aead</span> <span class="kw">import</span> <span class="cls">AESGCM</span>
+<span class="kw">from</span> <span class="var">tun</span> <span class="kw">import</span> <span class="fn">open_tun</span>, <span class="fn">configure_iface</span>
+<span class="kw">import</span> <span class="var">os</span>
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    <span class="var">p</span> = <span class="cls">argparse</span>.<span class="fn">ArgumentParser</span>()
+    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--server"</span>, <span class="var">required</span>=<span class="kw">True</span>)  <span class="cm"># IP of server</span>
+    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--key"</span>,    <span class="var">required</span>=<span class="kw">True</span>)  <span class="cm"># shared secret (hex)</span>
+    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--port"</span>, <span class="var">type</span>=<span class="var">int</span>, <span class="var">default</span>=<span class="num">8888</span>)
+    <span class="var">args</span> = <span class="var">p</span>.<span class="fn">parse_args</span>()
+
+    <span class="var">key</span>  = <span class="var">bytes</span>.<span class="fn">fromhex</span>(<span class="var">args</span>.<span class="var">key</span>)
+    <span class="var">aes</span>  = <span class="cls">AESGCM</span>(<span class="var">key</span>)
+    <span class="var">peer</span> = (<span class="var">args</span>.<span class="var">server</span>, <span class="var">args</span>.<span class="var">port</span>)
+    <span class="var">tun</span>  = <span class="fn">open_tun</span>(<span class="str">"tun0"</span>)
+    <span class="fn">configure_iface</span>(<span class="str">"tun0"</span>, <span class="str">"10.0.0.2"</span>, <span class="str">"10.0.0.0/24"</span>)
+
+    <span class="var">sock</span> = <span class="var">socket</span>.<span class="fn">socket</span>(<span class="var">socket</span>.<span class="cls">AF_INET</span>, <span class="var">socket</span>.<span class="cls">SOCK_DGRAM</span>)
+    <span class="var">sock</span>.<span class="fn">sendto</span>(<span class="str">b"\\x00"</span>, <span class="var">peer</span>)  <span class="cm"># handshake: reveal our address</span>
+
+    <span class="kw">def</span> <span class="fn">tun_to_udp</span>():
+        <span class="kw">while</span> <span class="kw">True</span>:
+            <span class="var">pkt</span>   = <span class="var">os</span>.<span class="fn">read</span>(<span class="var">tun</span>, <span class="num">65535</span>)
+            <span class="var">nonce</span> = <span class="var">os</span>.<span class="fn">urandom</span>(<span class="num">12</span>)
+            <span class="var">sock</span>.<span class="fn">sendto</span>(<span class="var">nonce</span> + <span class="var">aes</span>.<span class="fn">encrypt</span>(<span class="var">nonce</span>, <span class="var">pkt</span>, <span class="kw">None</span>), <span class="var">peer</span>)
+
+    <span class="kw">def</span> <span class="fn">udp_to_tun</span>():
+        <span class="kw">while</span> <span class="kw">True</span>:
+            <span class="var">data</span>, <span class="var">_</span> = <span class="var">sock</span>.<span class="fn">recvfrom</span>(<span class="num">65535</span>)
+            <span class="kw">try</span>:
+                <span class="var">os</span>.<span class="fn">write</span>(<span class="var">tun</span>, <span class="var">aes</span>.<span class="fn">decrypt</span>(<span class="var">data</span>[:<span class="num">12</span>], <span class="var">data</span>[<span class="num">12</span>:], <span class="kw">None</span>))
+            <span class="kw">except</span>: <span class="kw">pass</span>  <span class="cm"># drop tampered packets</span>
+
+    <span class="cls">threading</span>.<span class="cls">Thread</span>(<span class="var">target</span>=<span class="fn">tun_to_udp</span>, <span class="var">daemon</span>=<span class="kw">True</span>).<span class="fn">start</span>()
+    <span class="fn">udp_to_tun</span>()
+
+<span class="kw">if</span> <span class="var">__name__</span> == <span class="str">"__main__"</span>: <span class="fn">main</span>()`,
+
+  tun: `<span class="cm">"""tun.py — portable TUN device helper (Linux/macOS)"""</span>
+<span class="kw">import</span> <span class="var">os, fcntl, struct, subprocess, platform</span>
+
+<span class="cm"># Linux ioctl constants</span>
+<span class="var">TUNSETIFF</span>   = <span class="num">0x400454ca</span>
+<span class="var">IFF_TUN</span>     = <span class="num">0x0001</span>
+<span class="var">IFF_NO_PI</span>   = <span class="num">0x1000</span>  <span class="cm"># no packet info header</span>
+
+<span class="kw">def</span> <span class="fn">open_tun</span>(<span class="var">name</span>: <span class="var">str</span> = <span class="str">"tun0"</span>) -> <span class="var">int</span>:
+    <span class="cm">"""Open /dev/net/tun and bind a named interface. Returns fd."""</span>
+    <span class="kw">if</span> <span class="var">platform</span>.<span class="fn">system</span>() == <span class="str">"Darwin"</span>:
+        <span class="cm"># macOS: use /dev/tunN directly</span>
+        <span class="var">fd</span> = <span class="var">os</span>.<span class="fn">open</span>(<span class="str">f"/dev/{name}"</span>, <span class="var">os</span>.<span class="cls">O_RDWR</span>)
+        <span class="kw">return</span> <span class="var">fd</span>
+
+    <span class="cm"># Linux path</span>
+    <span class="var">fd</span>  = <span class="var">os</span>.<span class="fn">open</span>(<span class="str">"/dev/net/tun"</span>, <span class="var">os</span>.<span class="cls">O_RDWR</span>)
+    <span class="var">ifr</span> = <span class="var">struct</span>.<span class="fn">pack</span>(<span class="str">"16sH"</span>, <span class="var">name</span>.<span class="fn">encode</span>(), <span class="var">IFF_TUN</span> | <span class="var">IFF_NO_PI</span>)
+    <span class="var">fcntl</span>.<span class="fn">ioctl</span>(<span class="var">fd</span>, <span class="var">TUNSETIFF</span>, <span class="var">ifr</span>)
+    <span class="kw">return</span> <span class="var">fd</span>
+
+<span class="kw">def</span> <span class="fn">configure_iface</span>(<span class="var">name</span>: <span class="var">str</span>, <span class="var">addr</span>: <span class="var">str</span>, <span class="var">net</span>: <span class="var">str</span>):
+    <span class="cm">"""Assign IP and bring the interface up."""</span>
+    <span class="var">cmds</span> = {
+        <span class="str">"Linux"</span>: [
+            [<span class="str">"ip"</span>, <span class="str">"addr"</span>, <span class="str">"add"</span>, <span class="str">f"{addr}/24"</span>, <span class="str">"dev"</span>, <span class="var">name</span>],
+            [<span class="str">"ip"</span>, <span class="str">"link"</span>, <span class="str">"set"</span>, <span class="var">name</span>, <span class="str">"up"</span>],
+        ],
+        <span class="str">"Darwin"</span>: [
+            [<span class="str">"ifconfig"</span>, <span class="var">name</span>, <span class="var">addr</span>, <span class="str">"10.0.0.1"</span>, <span class="str">"up"</span>],
+        ],
+    }
+    <span class="kw">for</span> <span class="var">cmd</span> <span class="kw">in</span> <span class="var">cmds</span>[<span class="var">platform</span>.<span class="fn">system</span>()]:
+        <span class="var">subprocess</span>.<span class="fn">run</span>(<span class="var">cmd</span>, <span class="var">check</span>=<span class="kw">True</span>)
+    <span class="fn">print</span>(<span class="str">f"[*] {name} up — {addr}/24"</span>)`
+};
+
+const stepCode = [0, 0, 0, 1];
+const stepHighlight = [
+  'open_tun',
+  'os.read',
+  'aes.encrypt',
+  'sock.sendto'
+];
+
+function setStep(i) {
+  document.querySelectorAll('.step').forEach((s,idx) => s.classList.toggle('active', idx===i));
+  setTab(i < 2 ? 'tun' : (i === 3 ? 'client' : 'server'));
+}
+
+function setTab(tab) {
+  document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.code-tab').forEach(t => {
+    if (t.textContent.includes(tab) || (tab==='server' && t.textContent.includes('server')) ||
+        (tab==='client' && t.textContent.includes('client')) || (tab==='tun' && t.textContent.includes('tun'))) {
+      t.classList.add('active');
+    }
+  });
+  const key = tab.replace('.py','');
+  document.getElementById('code-pre').innerHTML = codes[key] || codes.server;
+  document.getElementById('tab-file').textContent = `tinyvpn/${key}.py`;
+}
+
+setTab('server');
+</script>
