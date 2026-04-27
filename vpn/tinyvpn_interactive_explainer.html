@@ -1,398 +1,422 @@
-
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
-:root{--green:#00e676;--green-dim:#00b557;--teal:#1de9b6;--amber:#ffab00;--red:#ff5252;--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--muted:#7d8590;--text:#e6edf3}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
-
-.root{padding:28px 24px;max-width:680px}
-
-/* HERO */
-.hero{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:20px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(0,230,118,.06) 0%,transparent 70%)}
-.tag{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.2);border-radius:4px;padding:3px 8px;margin-bottom:14px;letter-spacing:.05em}
-.dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
-h1{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;line-height:1.2;letter-spacing:-.02em;margin-bottom:8px}
-h1 span{color:var(--green)}
-.sub{color:var(--muted);font-size:14px;line-height:1.6;max-width:520px}
-.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
-.badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;font-weight:600;letter-spacing:.04em}
-.b-py{background:rgba(55,118,179,.15);color:#79b8ff;border:1px solid rgba(55,118,179,.3)}
-.b-tun{background:rgba(29,233,182,.1);color:var(--teal);border:1px solid rgba(29,233,182,.2)}
-.b-aes{background:rgba(255,171,0,.1);color:var(--amber);border:1px solid rgba(255,171,0,.2)}
-.b-li{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
-
-/* TUNNEL VIZ */
-.tunnel-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
-.tunnel-label{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
-.tunnel-svg{width:100%;display:block}
-
-/* PACKET ANIM */
-@keyframes fly{0%{transform:translateX(0);opacity:0}5%{opacity:1}90%{opacity:1}100%{transform:translateX(460px);opacity:0}}
-@keyframes fly-enc{0%{transform:translateX(0);opacity:0}5%{opacity:1}90%{opacity:1}100%{transform:translateX(280px);opacity:0}}
-.pkt{animation:fly 2.4s cubic-bezier(.4,0,.2,1) infinite}
-.pkt-enc{animation:fly-enc 2.4s cubic-bezier(.4,0,.2,1) infinite 0.3s}
-
-/* STEPS */
-.steps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
-.step{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
-.step:hover{border-color:var(--green-dim)}
-.step.active{border-color:var(--green);background:rgba(0,230,118,.04)}
-.step-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);font-weight:700;letter-spacing:.05em;margin-bottom:6px}
-.step-title{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)}
-.step-desc{font-size:12px;color:var(--muted);line-height:1.5}
-.step-icon{position:absolute;top:14px;right:14px;font-size:16px;opacity:.6}
-
-/* CODE */
-.code-wrap{background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px}
-.code-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
-.code-filename{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
-.code-tabs{display:flex;gap:0}
-.code-tab{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 14px;cursor:pointer;color:var(--muted);border:none;background:none;border-bottom:2px solid transparent;transition:all .15s}
-.code-tab.active{color:var(--green);border-bottom-color:var(--green)}
-.code-body{padding:20px;overflow-x:auto;max-height:380px;overflow-y:auto}
-pre{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;white-space:pre}
-.kw{color:#ff7b72}.fn{color:#d2a8ff}.str{color:#a5d6ff}.num{color:#f8c58a}.cm{color:#8b949e}.cls{color:#ffa657}.op{color:#79c0ff}.var{color:var(--text)}
-
-/* STATS */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
-.stat-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green);line-height:1}
-.stat-label{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.03em}
-
-/* TERMINAL */
-.term{background:#000;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px}
-.term-bar{background:var(--bg3);padding:8px 14px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
-.term-dot{width:10px;height:10px;border-radius:50%}
-.term-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:8px;flex:1}
-.term-body{padding:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8}
-.t-prompt{color:var(--green)}.t-cmd{color:var(--text)}.t-out{color:var(--muted)}.t-enc{color:var(--amber)}.t-ok{color:var(--teal)}
-
-/* ARCH */
-.arch{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
-
-/* CTA */
-.cta{background:linear-gradient(135deg,rgba(0,230,118,.08) 0%,rgba(29,233,182,.05) 100%);border:1px solid rgba(0,230,118,.2);border-radius:12px;padding:24px;text-align:center}
-.cta h3{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;margin-bottom:8px}
-.cta p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px}
-.cta-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
-.btn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:10px 22px;border-radius:6px;cursor:pointer;border:none;transition:all .15s}
-.btn-main{background:var(--green);color:#000}
-.btn-main:hover{background:#00ff85}
-.btn-sec{background:transparent;color:var(--green);border:1px solid rgba(0,230,118,.35)}
-.btn-sec:hover{background:rgba(0,230,118,.08)}
-</style>
-
-<div class="root">
-
-<!-- HERO -->
-<div class="hero">
-  <div class="tag"><span class="dot-live"></span>OPEN SOURCE PROJECT</div>
-  <h1>tiny<span>vpn</span>.py</h1>
-  <p class="sub">A 200-line VPN from scratch. Raw TUN interfaces. AES-256 encryption. The exact mechanism behind every commercial VPN — distilled to one afternoon of Python.</p>
-  <div class="badges">
-    <span class="badge b-py">Python 3.10+</span>
-    <span class="badge b-tun">TUN / TAP</span>
-    <span class="badge b-aes">AES-256-GCM</span>
-    <span class="badge b-li">~200 lines</span>
-    <span class="badge b-li">Linux / macOS</span>
-  </div>
-</div>
-
-<!-- LIVE TUNNEL VIZ -->
-<div class="tunnel-wrap">
-  <div class="tunnel-label">live tunnel — packets in flight</div>
-  <svg class="tunnel-svg" viewBox="0 0 620 110">
-    <!-- Machine A -->
-    <rect x="0" y="30" width="90" height="50" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
-    <text font-family="JetBrains Mono,monospace" font-size="10" fill="#00e676" x="45" y="51" text-anchor="middle" font-weight="700">Machine A</text>
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="45" y="66" text-anchor="middle">10.0.0.1</text>
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="45" y="78" text-anchor="middle">tun0</text>
-
-    <!-- Arrow line (plaintext) -->
-    <line x1="90" y1="55" x2="180" y2="55" stroke="#30363d" stroke-width="1.5"/>
-    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#7d8590" x="135" y="48" text-anchor="middle">plain IP pkt</text>
-
-    <!-- Encrypt box -->
-    <rect x="180" y="30" width="80" height="50" rx="8" fill="#1a1200" stroke="#ffab00" stroke-width="1"/>
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#ffab00" x="220" y="53" text-anchor="middle" font-weight="700">ENCRYPT</text>
-    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#8b7000" x="220" y="66" text-anchor="middle">AES-256-GCM</text>
-
-    <!-- UDP tunnel -->
-    <rect x="260" y="40" width="100" height="30" rx="6" fill="#0a1628" stroke="#1f4080" stroke-width="1"/>
-    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#79b8ff" x="310" y="58" text-anchor="middle">UDP tunnel :8888</text>
-
-    <!-- Decrypt box -->
-    <rect x="360" y="30" width="80" height="50" rx="8" fill="#001a12" stroke="#1de9b6" stroke-width="1"/>
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#1de9b6" x="400" y="53" text-anchor="middle" font-weight="700">DECRYPT</text>
-    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#0a7050" x="400" y="66" text-anchor="middle">verify AEAD tag</text>
-
-    <!-- Arrow line -->
-    <line x1="440" y1="55" x2="530" y2="55" stroke="#30363d" stroke-width="1.5"/>
-    <text font-family="JetBrains Mono,monospace" font-size="8" fill="#7d8590" x="485" y="48" text-anchor="middle">plain IP pkt</text>
-
-    <!-- Machine B -->
-    <rect x="530" y="30" width="90" height="50" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
-    <text font-family="JetBrains Mono,monospace" font-size="10" fill="#00e676" x="575" y="51" text-anchor="middle" font-weight="700">Machine B</text>
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="575" y="66" text-anchor="middle">10.0.0.2</text>
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#7d8590" x="575" y="78" text-anchor="middle">tun0</text>
-
-    <!-- Animated plain packet -->
-    <g class="pkt" transform="translate(90,0)">
-      <rect x="0" y="47" width="36" height="16" rx="3" fill="#1e3a5f" stroke="#79b8ff" stroke-width=".8"/>
-      <text font-family="JetBrains Mono,monospace" font-size="7" fill="#a5d6ff" x="18" y="58" text-anchor="middle">PKT</text>
-    </g>
-
-    <!-- Animated encrypted packet -->
-    <g class="pkt-enc" transform="translate(270,0)">
-      <rect x="0" y="47" width="52" height="16" rx="3" fill="#2a1a00" stroke="#ffab00" stroke-width=".8"/>
-      <text font-family="JetBrains Mono,monospace" font-size="7" fill="#ffab00" x="26" y="58" text-anchor="middle">🔒 ciphertext</text>
-    </g>
-
-    <!-- Internet label -->
-    <text font-family="JetBrains Mono,monospace" font-size="9" fill="#30363d" x="310" y="100" text-anchor="middle">— public internet —</text>
-  </svg>
-</div>
-
-<!-- STATS -->
-<div class="stats">
-  <div class="stat"><div class="stat-val">~200</div><div class="stat-label">lines of Python</div></div>
-  <div class="stat"><div class="stat-val">256</div><div class="stat-label">bit AES-GCM key</div></div>
-  <div class="stat"><div class="stat-val">&lt;1ms</div><div class="stat-label">encrypt overhead</div></div>
-</div>
-
-<!-- HOW IT WORKS STEPS -->
-<div class="steps">
-  <div class="step active" onclick="setStep(0)" id="s0">
-    <div class="step-num">01 — KERNEL</div>
-    <div class="step-title">Open a TUN device</div>
-    <div class="step-desc">Create a virtual network interface. The OS routes packets through it — no drivers needed.</div>
-    <div class="step-icon">⚙</div>
-  </div>
-  <div class="step" onclick="setStep(1)" id="s1">
-    <div class="step-num">02 — READ</div>
-    <div class="step-title">Intercept raw IP packets</div>
-    <div class="step-desc">Read() from the TUN file descriptor gives you the raw IP packet — Ethernet header stripped.</div>
-    <div class="step-icon">📦</div>
-  </div>
-  <div class="step" onclick="setStep(2)" id="s2">
-    <div class="step-num">03 — ENCRYPT</div>
-    <div class="step-title">AES-256-GCM seal</div>
-    <div class="step-desc">Seal the packet with a random nonce. GCM gives you authenticated encryption — tampering detected.</div>
-    <div class="step-icon">🔐</div>
-  </div>
-  <div class="step" onclick="setStep(3)" id="s3">
-    <div class="step-num">04 — TUNNEL</div>
-    <div class="step-title">Send over UDP</div>
-    <div class="step-desc">Wrap ciphertext in UDP. The other side decrypts and writes back to its TUN — packet re-emerges.</div>
-    <div class="step-icon">🌐</div>
-  </div>
-</div>
-
-<!-- CODE PANEL -->
-<div class="code-wrap">
-  <div class="code-header">
-    <div class="code-tabs">
-      <button class="code-tab active" onclick="setTab('server')">server.py</button>
-      <button class="code-tab" onclick="setTab('client')">client.py</button>
-      <button class="code-tab" onclick="setTab('tun')">tun.py</button>
-    </div>
-    <span class="code-filename" id="tab-file">tinyvpn/server.py</span>
-  </div>
-  <div class="code-body">
-    <pre id="code-pre"></pre>
-  </div>
-</div>
-
-<!-- TERMINAL -->
-<div class="term">
-  <div class="term-bar">
-    <div class="term-dot" style="background:#ff5f57"></div>
-    <div class="term-dot" style="background:#ffbd2e"></div>
-    <div class="term-dot" style="background:#28ca41"></div>
-    <div class="term-title">root@server — tinyvpn</div>
-  </div>
-  <div class="term-body">
-    <div><span class="t-prompt">$ </span><span class="t-cmd">python3 server.py --key $(openssl rand -hex 32)</span></div>
-    <div><span class="t-out">[*] TUN interface tun0 up — 10.0.0.1/24</span></div>
-    <div><span class="t-out">[*] Listening on UDP :8888</span></div>
-    <div><span class="t-ok">[+] Peer connected: 203.0.113.42:49231</span></div>
-    <div><span class="t-enc">[~] RX  68B → decrypt → 40B → write tun0</span></div>
-    <div><span class="t-enc">[~] TX  40B → encrypt → 68B → send UDP</span></div>
-    <div><span class="t-enc">[~] RX 128B → decrypt → 96B → write tun0</span></div>
-    <div><span class="t-ok">[+] 14 packets tunneled, 0 auth failures</span></div>
-  </div>
-</div>
-
-<!-- CTA -->
-<div class="cta">
-  <h3>ship your own VPN in an afternoon</h3>
-  <p>Every commercial VPN — WireGuard, OpenVPN, Tailscale — runs this same loop at its core.<br>Now you understand the whole stack, not just the product.</p>
-  <div class="cta-btns">
-    <button class="btn btn-main" onclick="sendPrompt('Generate the complete tinyvpn Python project — server.py, client.py, tun.py, and a README — all runnable code')">Generate full project ↗</button>
-    <button class="btn btn-sec" onclick="sendPrompt('Explain how WireGuard differs from what tinyvpn does — what makes WireGuard production-grade?')">How WireGuard improves this ↗</button>
-  </div>
-</div>
-
-</div>
-
-<script>
-const codes = {
-  server: `<span class="cm">#!/usr/bin/env python3</span>
-<span class="cm">"""tinyvpn — server side. Run as root."""</span>
-<span class="kw">import</span> <span class="var">socket, threading, argparse</span>
-<span class="kw">from</span> <span class="var">cryptography.hazmat.primitives.ciphers.aead</span> <span class="kw">import</span> <span class="cls">AESGCM</span>
-<span class="kw">from</span> <span class="var">tun</span> <span class="kw">import</span> <span class="fn">open_tun</span>, <span class="fn">configure_iface</span>
-<span class="kw">import</span> <span class="var">os</span>
-
-<span class="kw">def</span> <span class="fn">tun_to_udp</span>(<span class="var">tun_fd</span>, <span class="var">sock</span>, <span class="var">aes</span>, <span class="var">peer</span>):
-    <span class="cm">"""Read raw IP packets from TUN, encrypt, send UDP."""</span>
-    <span class="kw">while</span> <span class="kw">True</span>:
-        <span class="var">packet</span> = <span class="var">os</span>.<span class="fn">read</span>(<span class="var">tun_fd</span>, <span class="num">65535</span>)
-        <span class="var">nonce</span>  = <span class="var">os</span>.<span class="fn">urandom</span>(<span class="num">12</span>)          <span class="cm"># 96-bit random nonce</span>
-        <span class="var">cipher</span> = <span class="var">aes</span>.<span class="fn">encrypt</span>(<span class="var">nonce</span>, <span class="var">packet</span>, <span class="kw">None</span>)
-        <span class="var">sock</span>.<span class="fn">sendto</span>(<span class="var">nonce</span> + <span class="var">cipher</span>, <span class="var">peer</span>)  <span class="cm"># nonce prepended</span>
-
-<span class="kw">def</span> <span class="fn">udp_to_tun</span>(<span class="var">tun_fd</span>, <span class="var">sock</span>, <span class="var">aes</span>):
-    <span class="cm">"""Receive UDP, authenticate+decrypt, inject into TUN."""</span>
-    <span class="kw">while</span> <span class="kw">True</span>:
-        <span class="var">data</span>, <span class="var">addr</span> = <span class="var">sock</span>.<span class="fn">recvfrom</span>(<span class="num">65535</span>)
-        <span class="kw">try</span>:
-            <span class="var">nonce</span>, <span class="var">cipher</span> = <span class="var">data</span>[:<span class="num">12</span>], <span class="var">data</span>[<span class="num">12</span>:]
-            <span class="var">packet</span> = <span class="var">aes</span>.<span class="fn">decrypt</span>(<span class="var">nonce</span>, <span class="var">cipher</span>, <span class="kw">None</span>)
-            <span class="var">os</span>.<span class="fn">write</span>(<span class="var">tun_fd</span>, <span class="var">packet</span>)
-        <span class="kw">except</span> <span class="cls">Exception</span>:
-            <span class="fn">print</span>(<span class="str">"[!] auth failure — packet dropped"</span>)
-
-<span class="kw">def</span> <span class="fn">main</span>():
-    <span class="var">p</span> = <span class="cls">argparse</span>.<span class="fn">ArgumentParser</span>()
-    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--key"</span>, <span class="var">required</span>=<span class="kw">True</span>)
-    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--port"</span>, <span class="var">type</span>=<span class="var">int</span>, <span class="var">default</span>=<span class="num">8888</span>)
-    <span class="var">args</span> = <span class="var">p</span>.<span class="fn">parse_args</span>()
-
-    <span class="var">key</span> = <span class="var">bytes</span>.<span class="fn">fromhex</span>(<span class="var">args</span>.<span class="var">key</span>)   <span class="cm"># 32 bytes = AES-256</span>
-    <span class="var">aes</span> = <span class="cls">AESGCM</span>(<span class="var">key</span>)
-    <span class="var">tun</span> = <span class="fn">open_tun</span>(<span class="str">"tun0"</span>)
-    <span class="fn">configure_iface</span>(<span class="str">"tun0"</span>, <span class="str">"10.0.0.1"</span>, <span class="str">"10.0.0.0/24"</span>)
-
-    <span class="var">sock</span> = <span class="var">socket</span>.<span class="fn">socket</span>(<span class="var">socket</span>.<span class="cls">AF_INET</span>, <span class="var">socket</span>.<span class="cls">SOCK_DGRAM</span>)
-    <span class="var">sock</span>.<span class="fn">bind</span>((<span class="str">""</span>, <span class="var">args</span>.<span class="var">port</span>))
-    <span class="fn">print</span>(<span class="str">f"[*] Listening on UDP :{args.port}"</span>)
-
-    <span class="cm"># Wait for first packet to learn peer address</span>
-    <span class="var">data</span>, <span class="var">peer</span> = <span class="var">sock</span>.<span class="fn">recvfrom</span>(<span class="num">1</span>)
-    <span class="fn">print</span>(<span class="str">f"[+] Peer: {peer}"</span>)
-
-    <span class="cls">threading</span>.<span class="cls">Thread</span>(<span class="var">target</span>=<span class="fn">tun_to_udp</span>,
-        <span class="var">args</span>=(<span class="var">tun</span>, <span class="var">sock</span>, <span class="var">aes</span>, <span class="var">peer</span>), <span class="var">daemon</span>=<span class="kw">True</span>).<span class="fn">start</span>()
-    <span class="fn">udp_to_tun</span>(<span class="var">tun</span>, <span class="var">sock</span>, <span class="var">aes</span>)
-
-<span class="kw">if</span> <span class="var">__name__</span> == <span class="str">"__main__"</span>: <span class="fn">main</span>()`,
-
-  client: `<span class="cm">#!/usr/bin/env python3</span>
-<span class="cm">"""tinyvpn — client side. Run as root."""</span>
-<span class="kw">import</span> <span class="var">socket, threading, argparse</span>
-<span class="kw">from</span> <span class="var">cryptography.hazmat.primitives.ciphers.aead</span> <span class="kw">import</span> <span class="cls">AESGCM</span>
-<span class="kw">from</span> <span class="var">tun</span> <span class="kw">import</span> <span class="fn">open_tun</span>, <span class="fn">configure_iface</span>
-<span class="kw">import</span> <span class="var">os</span>
-
-<span class="kw">def</span> <span class="fn">main</span>():
-    <span class="var">p</span> = <span class="cls">argparse</span>.<span class="fn">ArgumentParser</span>()
-    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--server"</span>, <span class="var">required</span>=<span class="kw">True</span>)  <span class="cm"># IP of server</span>
-    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--key"</span>,    <span class="var">required</span>=<span class="kw">True</span>)  <span class="cm"># shared secret (hex)</span>
-    <span class="var">p</span>.<span class="fn">add_argument</span>(<span class="str">"--port"</span>, <span class="var">type</span>=<span class="var">int</span>, <span class="var">default</span>=<span class="num">8888</span>)
-    <span class="var">args</span> = <span class="var">p</span>.<span class="fn">parse_args</span>()
-
-    <span class="var">key</span>  = <span class="var">bytes</span>.<span class="fn">fromhex</span>(<span class="var">args</span>.<span class="var">key</span>)
-    <span class="var">aes</span>  = <span class="cls">AESGCM</span>(<span class="var">key</span>)
-    <span class="var">peer</span> = (<span class="var">args</span>.<span class="var">server</span>, <span class="var">args</span>.<span class="var">port</span>)
-    <span class="var">tun</span>  = <span class="fn">open_tun</span>(<span class="str">"tun0"</span>)
-    <span class="fn">configure_iface</span>(<span class="str">"tun0"</span>, <span class="str">"10.0.0.2"</span>, <span class="str">"10.0.0.0/24"</span>)
-
-    <span class="var">sock</span> = <span class="var">socket</span>.<span class="fn">socket</span>(<span class="var">socket</span>.<span class="cls">AF_INET</span>, <span class="var">socket</span>.<span class="cls">SOCK_DGRAM</span>)
-    <span class="var">sock</span>.<span class="fn">sendto</span>(<span class="str">b"\\x00"</span>, <span class="var">peer</span>)  <span class="cm"># handshake: reveal our address</span>
-
-    <span class="kw">def</span> <span class="fn">tun_to_udp</span>():
-        <span class="kw">while</span> <span class="kw">True</span>:
-            <span class="var">pkt</span>   = <span class="var">os</span>.<span class="fn">read</span>(<span class="var">tun</span>, <span class="num">65535</span>)
-            <span class="var">nonce</span> = <span class="var">os</span>.<span class="fn">urandom</span>(<span class="num">12</span>)
-            <span class="var">sock</span>.<span class="fn">sendto</span>(<span class="var">nonce</span> + <span class="var">aes</span>.<span class="fn">encrypt</span>(<span class="var">nonce</span>, <span class="var">pkt</span>, <span class="kw">None</span>), <span class="var">peer</span>)
-
-    <span class="kw">def</span> <span class="fn">udp_to_tun</span>():
-        <span class="kw">while</span> <span class="kw">True</span>:
-            <span class="var">data</span>, <span class="var">_</span> = <span class="var">sock</span>.<span class="fn">recvfrom</span>(<span class="num">65535</span>)
-            <span class="kw">try</span>:
-                <span class="var">os</span>.<span class="fn">write</span>(<span class="var">tun</span>, <span class="var">aes</span>.<span class="fn">decrypt</span>(<span class="var">data</span>[:<span class="num">12</span>], <span class="var">data</span>[<span class="num">12</span>:], <span class="kw">None</span>))
-            <span class="kw">except</span>: <span class="kw">pass</span>  <span class="cm"># drop tampered packets</span>
-
-    <span class="cls">threading</span>.<span class="cls">Thread</span>(<span class="var">target</span>=<span class="fn">tun_to_udp</span>, <span class="var">daemon</span>=<span class="kw">True</span>).<span class="fn">start</span>()
-    <span class="fn">udp_to_tun</span>()
-
-<span class="kw">if</span> <span class="var">__name__</span> == <span class="str">"__main__"</span>: <span class="fn">main</span>()`,
-
-  tun: `<span class="cm">"""tun.py — portable TUN device helper (Linux/macOS)"""</span>
-<span class="kw">import</span> <span class="var">os, fcntl, struct, subprocess, platform</span>
-
-<span class="cm"># Linux ioctl constants</span>
-<span class="var">TUNSETIFF</span>   = <span class="num">0x400454ca</span>
-<span class="var">IFF_TUN</span>     = <span class="num">0x0001</span>
-<span class="var">IFF_NO_PI</span>   = <span class="num">0x1000</span>  <span class="cm"># no packet info header</span>
-
-<span class="kw">def</span> <span class="fn">open_tun</span>(<span class="var">name</span>: <span class="var">str</span> = <span class="str">"tun0"</span>) -> <span class="var">int</span>:
-    <span class="cm">"""Open /dev/net/tun and bind a named interface. Returns fd."""</span>
-    <span class="kw">if</span> <span class="var">platform</span>.<span class="fn">system</span>() == <span class="str">"Darwin"</span>:
-        <span class="cm"># macOS: use /dev/tunN directly</span>
-        <span class="var">fd</span> = <span class="var">os</span>.<span class="fn">open</span>(<span class="str">f"/dev/{name}"</span>, <span class="var">os</span>.<span class="cls">O_RDWR</span>)
-        <span class="kw">return</span> <span class="var">fd</span>
-
-    <span class="cm"># Linux path</span>
-    <span class="var">fd</span>  = <span class="var">os</span>.<span class="fn">open</span>(<span class="str">"/dev/net/tun"</span>, <span class="var">os</span>.<span class="cls">O_RDWR</span>)
-    <span class="var">ifr</span> = <span class="var">struct</span>.<span class="fn">pack</span>(<span class="str">"16sH"</span>, <span class="var">name</span>.<span class="fn">encode</span>(), <span class="var">IFF_TUN</span> | <span class="var">IFF_NO_PI</span>)
-    <span class="var">fcntl</span>.<span class="fn">ioctl</span>(<span class="var">fd</span>, <span class="var">TUNSETIFF</span>, <span class="var">ifr</span>)
-    <span class="kw">return</span> <span class="var">fd</span>
-
-<span class="kw">def</span> <span class="fn">configure_iface</span>(<span class="var">name</span>: <span class="var">str</span>, <span class="var">addr</span>: <span class="var">str</span>, <span class="var">net</span>: <span class="var">str</span>):
-    <span class="cm">"""Assign IP and bring the interface up."""</span>
-    <span class="var">cmds</span> = {
-        <span class="str">"Linux"</span>: [
-            [<span class="str">"ip"</span>, <span class="str">"addr"</span>, <span class="str">"add"</span>, <span class="str">f"{addr}/24"</span>, <span class="str">"dev"</span>, <span class="var">name</span>],
-            [<span class="str">"ip"</span>, <span class="str">"link"</span>, <span class="str">"set"</span>, <span class="var">name</span>, <span class="str">"up"</span>],
-        ],
-        <span class="str">"Darwin"</span>: [
-            [<span class="str">"ifconfig"</span>, <span class="var">name</span>, <span class="var">addr</span>, <span class="str">"10.0.0.1"</span>, <span class="str">"up"</span>],
-        ],
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tinyvpn v3 Interactive Explainer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+    :root{
+      --bg:#f4efe6;
+      --paper:#fffaf2;
+      --ink:#1e1a16;
+      --muted:#6d665f;
+      --line:#d8cfc2;
+      --accent:#c34a36;
+      --accent-2:#1f6f78;
+      --accent-3:#d88c1b;
+      --good:#2f7d4a;
+      --shadow:0 18px 50px rgba(41,33,24,.08);
     }
-    <span class="kw">for</span> <span class="var">cmd</span> <span class="kw">in</span> <span class="var">cmds</span>[<span class="var">platform</span>.<span class="fn">system</span>()]:
-        <span class="var">subprocess</span>.<span class="fn">run</span>(<span class="var">cmd</span>, <span class="var">check</span>=<span class="kw">True</span>)
-    <span class="fn">print</span>(<span class="str">f"[*] {name} up — {addr}/24"</span>)`
-};
-
-const stepCode = [0, 0, 0, 1];
-const stepHighlight = [
-  'open_tun',
-  'os.read',
-  'aes.encrypt',
-  'sock.sendto'
-];
-
-function setStep(i) {
-  document.querySelectorAll('.step').forEach((s,idx) => s.classList.toggle('active', idx===i));
-  setTab(i < 2 ? 'tun' : (i === 3 ? 'client' : 'server'));
-}
-
-function setTab(tab) {
-  document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.code-tab').forEach(t => {
-    if (t.textContent.includes(tab) || (tab==='server' && t.textContent.includes('server')) ||
-        (tab==='client' && t.textContent.includes('client')) || (tab==='tun' && t.textContent.includes('tun'))) {
-      t.classList.add('active');
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:
+        radial-gradient(circle at top left, rgba(195,74,54,.08), transparent 32%),
+        radial-gradient(circle at top right, rgba(31,111,120,.09), transparent 28%),
+        linear-gradient(180deg,#efe7da 0%,#f8f3ea 50%,#f3eee6 100%);
+      color:var(--ink);
+      font-family:'IBM Plex Sans',sans-serif;
     }
-  });
-  const key = tab.replace('.py','');
-  document.getElementById('code-pre').innerHTML = codes[key] || codes.server;
-  document.getElementById('tab-file').textContent = `tinyvpn/${key}.py`;
-}
+    .page{max-width:1180px;margin:0 auto;padding:28px 20px 48px}
+    .hero{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:22px;
+      align-items:stretch;
+      margin-bottom:22px;
+    }
+    .panel{
+      background:var(--paper);
+      border:1px solid var(--line);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+    }
+    .hero-copy{padding:34px;position:relative;overflow:hidden}
+    .hero-copy::after{
+      content:"";
+      position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;
+      background:radial-gradient(circle, rgba(195,74,54,.16) 0%, rgba(195,74,54,0) 72%);
+    }
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:10px;
+      font:700 11px 'Space Mono',monospace;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--accent);margin-bottom:16px
+    }
+    .eyebrow::before{
+      content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)
+    }
+    h1{
+      margin:0 0 14px;
+      font:700 clamp(34px,5vw,62px)/.96 'Space Mono',monospace;
+      letter-spacing:-.04em;
+    }
+    .lead{
+      font-size:17px;line-height:1.65;color:var(--muted);max-width:58ch;margin:0 0 18px
+    }
+    .chips{display:flex;flex-wrap:wrap;gap:10px}
+    .chip{
+      padding:8px 12px;border-radius:999px;border:1px solid var(--line);
+      background:#fff; font:700 11px 'Space Mono',monospace; letter-spacing:.06em;
+    }
+    .hero-stats{
+      padding:24px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      background:
+        linear-gradient(145deg, rgba(31,111,120,.08), rgba(216,140,27,.08)),
+        var(--paper);
+    }
+    .stat{
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:18px;
+      background:rgba(255,255,255,.7);
+    }
+    .stat .num{font:700 28px 'Space Mono',monospace}
+    .stat .lbl{margin-top:6px;color:var(--muted);font-size:13px;line-height:1.45}
+    .grid{
+      display:grid;
+      grid-template-columns:320px 1fr;
+      gap:22px;
+      align-items:start;
+    }
+    .menu{padding:20px;position:sticky;top:16px}
+    .menu h2,.content h2{margin:0 0 14px;font:700 18px 'Space Mono',monospace}
+    .step{
+      border:1px solid var(--line);
+      background:#fffdf9;
+      border-radius:16px;
+      padding:14px 15px;
+      cursor:pointer;
+      transition:.18s ease;
+      margin-bottom:10px;
+    }
+    .step:hover,.step.active{border-color:var(--accent);transform:translateY(-1px)}
+    .step small{
+      display:block;font:700 11px 'Space Mono',monospace;color:var(--accent);margin-bottom:6px
+    }
+    .step strong{display:block;font-size:15px;margin-bottom:4px}
+    .step span{display:block;color:var(--muted);font-size:13px;line-height:1.45}
+    .content{display:grid;gap:22px}
+    .canvas{padding:24px}
+    .diagram{
+      display:grid;
+      grid-template-columns:1fr 160px 1fr;
+      gap:18px;
+      align-items:center;
+      margin-bottom:20px;
+    }
+    .node{
+      border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff
+    }
+    .node h3{margin:0 0 8px;font:700 17px 'Space Mono',monospace}
+    .node p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}
+    .tube{
+      height:14px;border-radius:999px;position:relative;
+      background:linear-gradient(90deg,var(--accent),var(--accent-3),var(--accent-2));
+      overflow:hidden
+    }
+    .tube::after{
+      content:"";position:absolute;top:2px;left:-20%;width:18%;height:10px;border-radius:999px;
+      background:rgba(255,255,255,.9);animation:glide 2.6s linear infinite;
+    }
+    @keyframes glide{from{left:-20%}to{left:110%}}
+    .facts{
+      display:grid;grid-template-columns:repeat(3,1fr);gap:12px
+    }
+    .fact{
+      border:1px solid var(--line);border-radius:16px;padding:16px;background:#fff
+    }
+    .fact strong{display:block;font:700 12px 'Space Mono',monospace;color:var(--accent-2);margin-bottom:7px}
+    .fact p{margin:0;font-size:13px;color:var(--muted);line-height:1.55}
+    .code{
+      padding:0;overflow:hidden
+    }
+    .code-head{
+      display:flex;justify-content:space-between;align-items:center;padding:14px 18px;
+      border-bottom:1px solid var(--line);background:#f7f0e5
+    }
+    .tabs{display:flex;gap:10px;flex-wrap:wrap}
+    .tab{
+      border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;
+      font:700 12px 'Space Mono',monospace;color:var(--muted);padding:6px 0
+    }
+    .tab.active{color:var(--ink);border-color:var(--accent)}
+    pre{
+      margin:0;padding:20px 22px;overflow:auto;max-height:420px;
+      background:#1c1917;color:#f8f5f0;font:13px/1.65 'Space Mono',monospace
+    }
+    .kw{color:#ff9f7c}.fn{color:#ffd479}.cm{color:#978d83}.ty{color:#8ad8e0}.st{color:#c3f0c8}
+    .dash{
+      padding:22px;
+      display:grid;grid-template-columns:repeat(5,1fr);gap:12px
+    }
+    .card{
+      border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff
+    }
+    .card b{display:block;font:700 24px 'Space Mono',monospace}
+    .card span{display:block;margin-top:5px;color:var(--muted);font-size:12px}
+    .footer{
+      padding:24px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px
+    }
+    .footer section{
+      border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff
+    }
+    .footer h3{margin:0 0 10px;font:700 15px 'Space Mono',monospace}
+    .footer p,.footer li{color:var(--muted);font-size:13px;line-height:1.55}
+    .footer ul{margin:0;padding-left:18px}
+    @media (max-width:980px){
+      .hero,.grid,.diagram,.footer{grid-template-columns:1fr}
+      .facts,.dash{grid-template-columns:1fr 1fr}
+      .menu{position:static}
+    }
+    @media (max-width:640px){
+      .facts,.dash,.hero-stats{grid-template-columns:1fr}
+      .page{padding:16px 14px 32px}
+      .hero-copy{padding:24px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="panel hero-copy">
+        <div class="eyebrow">production-grade user-space vpn</div>
+        <h1>tinyvpn v3</h1>
+        <p class="lead">
+          The old prototype was a single-hop encrypted tunnel. This version is a structured VPN node with
+          Noise-style key exchange, roaming, fragmentation, anti-replay, pacing, FastAPI metrics, route automation,
+          and onion-style multi-hop forwarding.
+        </p>
+        <div class="chips">
+          <div class="chip">X25519 + HKDF</div>
+          <div class="chip">AES-256-GCM</div>
+          <div class="chip">FastAPI + WebSocket</div>
+          <div class="chip">Wintun-ready</div>
+          <div class="chip">Plugins</div>
+        </div>
+      </div>
+      <div class="panel hero-stats">
+        <div class="stat"><div class="num">3</div><div class="lbl">transport loops: receive, keepalive, reconnect</div></div>
+        <div class="stat"><div class="num">2048</div><div class="lbl">anti-replay window bits per peer</div></div>
+        <div class="stat"><div class="num">n-hop</div><div class="lbl">encrypted route layering for relays</div></div>
+        <div class="stat"><div class="num">live</div><div class="lbl">WebSocket metrics stream for active peers and RTT</div></div>
+      </div>
+    </section>
 
-setTab('server');
-</script>
+    <section class="grid">
+      <aside class="panel menu">
+        <h2>Explore The Stack</h2>
+        <div class="step active" data-step="0">
+          <small>01</small><strong>Handshake</strong>
+          <span>Static identity keys authenticate peers. Ephemeral keys rotate session secrecy forward.</span>
+        </div>
+        <div class="step" data-step="1">
+          <small>02</small><strong>Transport</strong>
+          <span>Authenticated headers carry tunnel ids, sequence numbers, and fragmentation metadata.</span>
+        </div>
+        <div class="step" data-step="2">
+          <small>03</small><strong>Multi-Hop</strong>
+          <span>Each relay decrypts one route layer and forwards the next encrypted wire packet.</span>
+        </div>
+        <div class="step" data-step="3">
+          <small>04</small><strong>Observability</strong>
+          <span>FastAPI exposes snapshots and a WebSocket stream for peer health, loss, RTT, and errors.</span>
+        </div>
+        <div class="step" data-step="4">
+          <small>05</small><strong>Windows Ops</strong>
+          <span>Wintun plus automatic routes, DNS changes, cleanup, and roaming-friendly endpoint updates.</span>
+        </div>
+      </aside>
+
+      <div class="content">
+        <div class="panel canvas">
+          <div class="diagram">
+            <div class="node">
+              <h3 id="leftTitle">Client</h3>
+              <p id="leftText">Initiates a Noise-style handshake, installs a tunnel id, and encrypts raw IP packets from the TUN interface.</p>
+            </div>
+            <div class="tube"></div>
+            <div class="node">
+              <h3 id="rightTitle">Server / Relay</h3>
+              <p id="rightText">Authenticates the initiator, derives directional keys, handles roaming, and can relay an inner hop without decrypting it.</p>
+            </div>
+          </div>
+          <div class="facts">
+            <div class="fact"><strong id="fact1h">Noise-style auth</strong><p id="fact1b">The initiator sends an ephemeral key and an encrypted static identity payload instead of a pre-shared secret blob.</p></div>
+            <div class="fact"><strong id="fact2h">Header as AAD</strong><p id="fact2b">Tunnel id, sequence number, and fragment metadata are authenticated by AES-GCM and cannot be altered safely.</p></div>
+            <div class="fact"><strong id="fact3h">Debug without hot-path cost</strong><p id="fact3b">Packet inspection stays outside the transport fast path and only runs when debug mode is enabled.</p></div>
+          </div>
+        </div>
+
+        <div class="panel code">
+          <div class="code-head">
+            <div class="tabs">
+              <button class="tab active" data-tab="crypto">tinyvpn/crypto.py</button>
+              <button class="tab" data-tab="node">tinyvpn/node.py</button>
+              <button class="tab" data-tab="protocol">tinyvpn/protocol.py</button>
+            </div>
+            <span id="caption" style="font:700 11px 'Space Mono',monospace;color:var(--muted)">handshake and transport keys</span>
+          </div>
+          <pre id="codeView"></pre>
+        </div>
+
+        <div class="panel dash">
+          <div class="card"><b>4</b><span>active peers</span></div>
+          <div class="card"><b>82ms</b><span>median RTT</span></div>
+          <div class="card"><b>11.2MB/s</b><span>adaptive pacing rate</span></div>
+          <div class="card"><b>2</b><span>session rekeys</span></div>
+          <div class="card"><b>0</b><span>replay accepts beyond window</span></div>
+        </div>
+
+        <div class="panel footer">
+          <section>
+            <h3>What Changed</h3>
+            <ul>
+              <li>The transport is no longer keyed by a shared password.</li>
+              <li>Relays can forward encrypted inner wires using route layers.</li>
+              <li>The node tracks counters for handshakes, rekeys, auth failures, drops, and fragments.</li>
+              <li>Keepalive acks feed a pacing loop instead of acting as dead bytes.</li>
+            </ul>
+          </section>
+          <section>
+            <h3>Operational Notes</h3>
+            <p>
+              Multi-hop reduces effective MTU, so the safest deployment path is to lower the tunnel MTU when route chains are used.
+              The dashboard backend runs independently from the data plane and exposes `GET /api/snapshot` plus `WS /ws`.
+            </p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const stepData = [
+      {
+        leftTitle: "Initiator",
+        leftText: "Builds a Noise-style init message with an ephemeral X25519 key and an encrypted identity payload.",
+        rightTitle: "Responder",
+        rightText: "Decrypts the initiator payload using DH material, verifies the peer identity, and returns a fresh responder ephemeral key.",
+        fact1h: "Forward secrecy",
+        fact1b: "Every session mixes in fresh ephemeral keys so later key disclosure does not expose past transport sessions.",
+        fact2h: "Directional keys",
+        fact2b: "The initiator and responder derive separate send and receive keys from the same transcript.",
+        fact3h: "Identity-based roaming",
+        fact3b: "The tunnel follows the peer cryptographic identity and tunnel id, not a fixed UDP endpoint.",
+        tab: "crypto",
+        caption: "handshake and transport keys"
+      },
+      {
+        leftTitle: "TUN reader",
+        leftText: "Reads raw IP packets, fragments them before encryption, and assigns packet sequence numbers.",
+        rightTitle: "UDP receiver",
+        rightText: "Authenticates the header as AEAD data, rejects replays, reassembles fragments, and reinjects IP into the TUN device.",
+        fact1h: "Anti-replay",
+        fact1b: "A 2048-bit sliding bitmap rejects duplicate or stale sequence numbers before expensive decryption succeeds.",
+        fact2h: "Fragment-safe",
+        fact2b: "Fragment ids and fragment ordering are carried in authenticated transport metadata.",
+        fact3h: "Adaptive pacing",
+        fact3b: "UDP sends are paced by a token bucket that reacts to RTT growth and loss events.",
+        tab: "protocol",
+        caption: "authenticated packet header"
+      },
+      {
+        leftTitle: "Origin hop",
+        leftText: "Builds nested route layers by wrapping inner encrypted wires for downstream hops.",
+        rightTitle: "Relay hop",
+        rightText: "Decrypts only its own layer, reveals the next peer id, and forwards the untouched inner encrypted wire.",
+        fact1h: "Hop isolation",
+        fact1b: "Each node learns only the next hop and never the plaintext of deeper layers.",
+        fact2h: "Encrypted metadata",
+        fact2b: "Route instructions are carried inside the encrypted payload, not in clear UDP metadata.",
+        fact3h: "Practical limit",
+        fact3b: "Deep chains reduce payload budget, so MTU tuning is part of route design.",
+        tab: "node",
+        caption: "route layering and forwarding"
+      },
+      {
+        leftTitle: "Metrics producer",
+        leftText: "Each transport event updates peer counters, throughput, loss, and subsystem-specific error totals.",
+        rightTitle: "Dashboard backend",
+        rightText: "FastAPI exposes JSON snapshots and streams live updates over WebSockets with minimal coupling to the data plane.",
+        fact1h: "Live stats",
+        fact1b: "Active peers, RTT, rekeys, packet loss, and pacing rate are published continuously.",
+        fact2h: "Debug counters",
+        fact2b: "Handshake count, auth failures, packet drops, and fragment stats are all tracked separately.",
+        fact3h: "Safe separation",
+        fact3b: "Monitoring stays out of the crypto hot path and reads registry snapshots instead.",
+        tab: "node",
+        caption: "metrics and dashboard hooks"
+      },
+      {
+        leftTitle: "Windows client",
+        leftText: "Uses a Wintun-style device wrapper, applies IP settings, installs routes, and updates DNS automatically.",
+        rightTitle: "Cleanup path",
+        rightText: "Restores routes and DNS state on shutdown so the machine does not stay partially tunneled.",
+        fact1h: "Route automation",
+        fact1b: "Default route redirection and extra prefixes can be managed directly from config.",
+        fact2h: "Keepalive and reconnect",
+        fact2b: "Sessions survive endpoint churn better because reconnect and roaming are built into the control plane.",
+        fact3h: "Plugin surface",
+        fact3b: "Packet logging, filtering, and shaping can be injected without rewriting the core transport loop.",
+        tab: "node",
+        caption: "operations, cleanup, and plugins"
+      }
+    ];
+
+    const codeSnippets = {
+      crypto: `<span class="cm"># Noise-style init: static identity encrypted under DH-derived key</span>\n<span class="kw">def</span> <span class="fn">build_handshake_init</span>(local_static, remote_static, advertised_ip, *, network_name, keepalive_seconds):\n    eph = <span class="ty">X25519PrivateKey</span>.generate()\n    eph_raw = <span class="fn">public_key_bytes</span>(eph.public_key())\n    init_key = <span class="fn">hkdf</span>(eph.exchange(remote_static), salt=network_name.encode(), info=<span class="st">b"tinyvpn-noise-init"</span>)\n    payload = <span class="fn">public_key_bytes</span>(local_static.public_key()) + ip_bytes + struct.pack(<span class="st">"!H"</span>, keepalive_seconds)\n    ciphertext = <span class="ty">AESGCM</span>(init_key).encrypt(nonce, payload, eph_raw)\n    <span class="kw">return</span> state, bytes([HANDSHAKE_INIT]) + struct.pack(<span class="st">"!I"</span>, session_id) + eph_raw + ciphertext`,
+      node: `<span class="cm"># Relay path: decrypt only one layer, then forward the inner encrypted wire</span>\nnext_peer_id, inner = <span class="fn">decode_route_layer</span>(payload)\n<span class="kw">if</span> next_peer_id:\n    <span class="fn">_forward_to_peer</span>(next_peer_id, inner)\n    <span class="kw">return</span>\n\n<span class="cm"># Client path: wrap deeper hops first, then hand the outer layer to the first hop</span>\n<span class="kw">for</span> hop_name <span class="kw">in</span> reversed(route_chain[1:]):\n    route_layer = <span class="fn">encode_route_layer</span>(next_peer_id, inner)\n    wires = <span class="fn">_build_wires</span>(peer, route_layer, MSG_DATA)\n    inner = wires[0]\n    next_peer_id = peer.peer_id`,
+      protocol: `<span class="cm"># Authenticated header carried as AEAD additional data</span>\n<span class="kw">@dataclass</span>(slots=<span class="kw">True</span>)\n<span class="kw">class</span> <span class="ty">PacketHeader</span>:\n    version: int\n    msg_type: int\n    flags: int\n    hop_count: int\n    tunnel_id: int\n    sequence: int\n    fragment_id: int\n    fragment_index: int\n    fragment_count: int\n\n    <span class="kw">def</span> <span class="fn">pack</span>(self) -> bytes:\n        <span class="kw">return</span> HEADER_STRUCT.pack(...)\n\n<span class="cm"># The packed header is passed as GCM AAD during encrypt/decrypt</span>`
+    };
+
+    const steps = document.querySelectorAll('.step');
+    const tabs = document.querySelectorAll('.tab');
+    const codeView = document.getElementById('codeView');
+    const caption = document.getElementById('caption');
+
+    function applyStep(index) {
+      const data = stepData[index];
+      steps.forEach((step, i) => step.classList.toggle('active', i === index));
+      document.getElementById('leftTitle').textContent = data.leftTitle;
+      document.getElementById('leftText').textContent = data.leftText;
+      document.getElementById('rightTitle').textContent = data.rightTitle;
+      document.getElementById('rightText').textContent = data.rightText;
+      document.getElementById('fact1h').textContent = data.fact1h;
+      document.getElementById('fact1b').textContent = data.fact1b;
+      document.getElementById('fact2h').textContent = data.fact2h;
+      document.getElementById('fact2b').textContent = data.fact2b;
+      document.getElementById('fact3h').textContent = data.fact3h;
+      document.getElementById('fact3b').textContent = data.fact3b;
+      applyTab(data.tab, data.caption);
+    }
+
+    function applyTab(tabName, captionText) {
+      tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === tabName));
+      codeView.innerHTML = codeSnippets[tabName];
+      caption.textContent = captionText;
+    }
+
+    steps.forEach(step => step.addEventListener('click', () => applyStep(Number(step.dataset.step))));
+    tabs.forEach(tab => tab.addEventListener('click', () => applyTab(tab.dataset.tab, caption.textContent)));
+
+    applyStep(0);
+  </script>
+</body>
+</html>

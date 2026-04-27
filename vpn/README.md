@@ -1,224 +1,249 @@
-# tinyvpn 🔐
+# tinyvpn v3
 
-**A working VPN in ~200 lines of Python.** Raw TUN interfaces. AES-256-GCM encryption. Zero dependencies beyond the Python standard library and `cryptography`.
+`tinyvpn` is now a modular user-space VPN aimed at Windows + Wintun, with a Python control plane and UDP data plane.
 
-This is the actual mechanism behind every VPN product — WireGuard, OpenVPN, Tailscale — distilled to its essence. Read the source. You'll understand all of them.
+It upgrades the earlier prototype in the following ways:
 
-```
-Machine A (client)                         Machine B (server)
-──────────────────                         ──────────────────
- app writes to 10.0.0.2
-      │
- kernel routes → tun0
-      │
- os.read(tun_fd)  ← raw IP packet
-      │
- AES-256-GCM encrypt + random nonce
-      │
- UDP sendto() ─────────────────────────► UDP recvfrom()
-                   public internet            │
-                                         AES-256-GCM decrypt
-                                              │
-                                         AEAD tag verified ✓
-                                              │
-                                         os.write(tun_fd)
-                                              │
-                                         kernel delivers to app
-```
+- Noise-style authenticated handshake using `X25519` + `HKDF`
+- Ephemeral session keys with forward secrecy
+- AES-256-GCM transport with authenticated packet headers
+- Anti-replay sliding window
+- Multi-hop onion-style route layers
+- Fragmentation and reassembly before transport encryption
+- Adaptive UDP pacing based on RTT/loss feedback
+- Seamless roaming keyed by peer identity and tunnel id
+- Keepalive, reconnect, and rekey loops
+- FastAPI dashboard backend with WebSocket metrics
+- Plugin hooks for send, receive, and connection events
+- Automatic route and DNS management
+- Optional packet inspection in debug mode
 
----
+## Layout
 
-## How it works
-
-### 1 — The TUN device
-
-A TUN (network TUNnel) interface is a virtual network card entirely in software. When you `os.read(fd)` from it, the kernel hands you a **raw IP packet** — no Ethernet header, no driver overhead. When you `os.write(fd, pkt)` to it, the kernel delivers that packet to whatever process is listening on the destination address.
-
-```python
-fd  = os.open("/dev/net/tun", os.O_RDWR)
-ifr = struct.pack("16sH14s", b"tun0", IFF_TUN | IFF_NO_PI, b"\x00" * 14)
-fcntl.ioctl(fd, TUNSETIFF, ifr)          # register the interface
-```
-
-`IFF_NO_PI` strips the 4-byte packet-info prefix the kernel would otherwise add. We get pure IP, nothing else.
-
-### 2 — Reading and writing packets
-
-```python
-# Intercept outgoing traffic
-packet = os.read(tun_fd, 65535)   # blocks until a packet arrives
-
-# Inject incoming traffic back into the kernel
-os.write(tun_fd, decrypted_packet)
+```text
+vpn/
+├── client.py
+├── server.py
+├── crypto.py                  # compatibility shim
+├── tun.py                     # compatibility shim
+├── tinyvpn/
+│   ├── config.py
+│   ├── congestion.py
+│   ├── crypto.py
+│   ├── dashboard.py
+│   ├── dpi.py
+│   ├── fragmentation.py
+│   ├── keys.py
+│   ├── metrics.py
+│   ├── node.py
+│   ├── plugins.py
+│   ├── protocol.py
+│   ├── routing.py
+│   └── tun.py
+└── tinyvpn_interactive_explainer.html
 ```
 
-That's the entire kernel interface. Two syscalls. The rest is crypto and networking.
+## Key Architecture Decisions
 
-### 3 — AES-256-GCM encryption
+### 1. Authenticated key exchange
 
-We use **Authenticated Encryption with Associated Data (AEAD)**. AES-GCM gives us:
-- **Confidentiality** — the payload is encrypted (AES in counter mode)
-- **Integrity** — a 16-byte GHASH authentication tag detects any tampering
-- **Authenticity** — only someone with the key can produce a valid tag
+The old pre-shared key handshake is gone. The new handshake uses static node keys plus ephemeral X25519 keys:
 
-```python
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+- client proves identity by encrypting its static public key inside the first Noise-style message
+- server responds with a fresh ephemeral key
+- both sides derive transport keys using HKDF over multiple DH values
+- transport keys are directional: initiator to responder and responder to initiator
 
-aes = AESGCM(key)                         # key = 32 random bytes
+This keeps AES-256-GCM as the transport cipher while adding forward secrecy and identity-based roaming.
 
-# Encrypt
-nonce      = os.urandom(12)               # 96-bit, never reuse with same key
-ciphertext = aes.encrypt(nonce, packet, None)
-wire       = nonce + ciphertext           # prepend nonce for the receiver
+### 2. Packet model
 
-# Decrypt (raises InvalidTag if tampered — we drop the packet)
-packet = aes.decrypt(wire[:12], wire[12:], None)
+Each encrypted packet carries:
+
+- version
+- message type
+- flags
+- hop count
+- tunnel id
+- sequence number
+- fragmentation metadata
+
+The serialized header is included as AEAD additional authenticated data, so tampering with transport metadata causes decryption failure.
+
+### 3. Multi-hop
+
+Multi-hop forwarding uses encrypted route layers:
+
+- the outer hop decrypts only its layer
+- the decrypted payload reveals the next peer id and an inner encrypted wire packet
+- the relay forwards that inner packet without learning the final payload
+
+The client can prebuild nested route layers if it has sessions to each hop in the chain.
+
+### 4. Congestion control
+
+The transport uses a small adaptive pacer:
+
+- token-bucket pacing to avoid burst flooding
+- RTT feedback from keepalive acknowledgements
+- multiplicative backoff on loss/auth failures
+
+It is intentionally simple, but it prevents the raw UDP socket from becoming an unbounded packet firehose.
+
+### 5. Windows operational model
+
+For Windows, `tinyvpn` uses `pytun-pmd3` on top of Wintun/TAP-style device access and automates:
+
+- interface address assignment
+- route injection
+- optional default route redirection
+- DNS changes
+- cleanup on shutdown
+
+## Dependencies
+
+- Python 3.10+
+- `cryptography`
+- `fastapi`
+- `uvicorn`
+- `pytun-pmd3` on Windows
+
+Install:
+
+```powershell
+cd vpn
+pip install cryptography fastapi uvicorn pytun-pmd3
 ```
 
-The wire overhead per packet: **28 bytes** (12 nonce + 16 tag).
+## Generate keys
 
-### 4 — UDP tunnel
-
-We wrap the ciphertext in UDP, not TCP. Why?
-
-- **No head-of-line blocking** — if a packet is lost, TCP would stall; we just miss one frame (the application layer handles retransmission if it cares)
-- **No double-ACK** — TCP-over-TCP causes severe congestion collapse; UDP avoids it
-- **Simple** — `sendto` / `recvfrom`, that's it
-
-### 5 — Two threads per side
-
-```
-main thread:  tun → encrypt → UDP  (blocks on os.read)
-thread:       UDP → decrypt → tun  (blocks on recvfrom)
+```powershell
+cd vpn
+python -m tinyvpn.keys --private-out keys\client.key --public-out keys\client.pub
+python -m tinyvpn.keys --private-out keys\server.key --public-out keys\server.pub
 ```
 
-Both loops are I/O-bound; the GIL is released during every syscall, so Python threads work perfectly here.
+The key files are base64-encoded raw X25519 keys.
 
----
+## Example configs
 
-## Quick start
+### Server
 
-### Prerequisites
-
-```bash
-# Python 3.10+
-pip install cryptography
-
-# Linux: /dev/net/tun is built into the kernel (no setup needed)
-# macOS: install TunTap
-brew install --cask tuntap
+```json
+{
+  "role": "server",
+  "node_name": "edge-server",
+  "private_key_file": "keys/server.key",
+  "listen_host": "0.0.0.0",
+  "listen_port": 8888,
+  "tun": {
+    "name": "TinyVPN",
+    "address": "10.44.0.1",
+    "netmask": "255.255.255.0",
+    "gateway": "10.44.0.1",
+    "mtu": 1360,
+    "dns_servers": ["1.1.1.1", "8.8.8.8"],
+    "redirect_default_route": false,
+    "extra_routes": ["10.44.0.0/24"]
+  },
+  "peers": [
+    {
+      "name": "client-a",
+      "public_key_file": "keys/client.pub",
+      "advertised_tun_ip": "10.44.0.2",
+      "persistent_keepalive": 15
+    }
+  ],
+  "dashboard": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8080
+  },
+  "debug": {
+    "dpi": true,
+    "log_level": "INFO"
+  },
+  "enable_plugins": ["logging"]
+}
 ```
 
-### Generate a shared key
+### Client
 
-```bash
-# Run this once — share the output with both sides securely
-python3 -c "import os; print(os.urandom(32).hex())"
-# → e.g. a3f1c2d4e5b6a7f8... (64 hex chars)
+```json
+{
+  "role": "client",
+  "node_name": "laptop",
+  "private_key_file": "keys/client.key",
+  "listen_host": "0.0.0.0",
+  "listen_port": 0,
+  "tun": {
+    "name": "TinyVPN",
+    "address": "10.44.0.2",
+    "netmask": "255.255.255.0",
+    "gateway": "10.44.0.1",
+    "mtu": 1360,
+    "dns_servers": ["1.1.1.1"],
+    "redirect_default_route": true,
+    "extra_routes": []
+  },
+  "peers": [
+    {
+      "name": "entry",
+      "host": "203.0.113.10",
+      "port": 8888,
+      "public_key_file": "keys/server.pub",
+      "advertised_tun_ip": "10.44.0.1",
+      "persistent_keepalive": 15
+    }
+  ],
+  "route_chain": ["entry"],
+  "dashboard": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8081
+  },
+  "debug": {
+    "dpi": false,
+    "log_level": "INFO"
+  },
+  "enable_plugins": ["logging", "traffic-shaper"]
+}
 ```
 
-### Run the server
+## Run
 
-```bash
-# On the machine with a public IP / open UDP port
-sudo python3 server.py --key <YOUR_KEY>
+Server:
 
-# With options:
-sudo python3 server.py --key <YOUR_KEY> --port 9999 --ip 10.0.0.1 --iface tun0
+```powershell
+cd vpn
+python server.py --config server.json
 ```
 
-### Run the client
+Client:
 
-```bash
-# On any machine that should connect through the tunnel
-sudo python3 client.py --server <SERVER_PUBLIC_IP> --key <SAME_KEY>
-
-# With options:
-sudo python3 client.py --server 1.2.3.4 --key <KEY> --port 9999 --ip 10.0.0.2
+```powershell
+cd vpn
+python client.py --config client.json
 ```
 
-### Test the tunnel
+Dashboard:
 
-```bash
-# From the client — this packet travels encrypted through the internet
-ping 10.0.0.1
+- `GET /health`
+- `GET /api/snapshot`
+- `WS /ws`
 
-# From the server — reverse direction
-ping 10.0.0.2
+Metrics include:
 
-# iperf3 bandwidth test
-iperf3 -s                        # server
-iperf3 -c 10.0.0.1               # client — measure tunnel throughput
-```
+- active peers
+- RX/TX counters
+- packet loss
+- RTT
+- rekeys
+- errors
+- pacing rate
 
----
+## Notes
 
-## File layout
-
-```
-tinyvpn/
-├── tun.py      # TUN device helper — open, configure (Linux + macOS)
-├── server.py   # Server: listens on UDP, tunnels to/from TUN
-├── client.py   # Client: connects to server, tunnels to/from TUN
-└── README.md   # You are here
-```
-
----
-
-## Wire format
-
-```
-┌────────────┬──────────────────────────────────────────────────────────┐
-│  nonce     │  ciphertext + GHASH tag                                  │
-│  12 bytes  │  len(plaintext) + 16 bytes                               │
-└────────────┴──────────────────────────────────────────────────────────┘
-```
-
-A 1500-byte IP packet becomes a 1528-byte UDP payload (1500 + 12 + 16). Well within the typical 65507-byte UDP limit.
-
----
-
-## Security properties
-
-| Property | Mechanism |
-|---|---|
-| Confidentiality | AES-256 in GCM mode |
-| Integrity | GHASH authentication tag (128-bit) |
-| Authenticity | AEAD — only key-holders can produce valid ciphertext |
-| Replay resistance | ⚠ Not implemented (see below) |
-| Forward secrecy | ⚠ Not implemented (see below) |
-
-### What's missing vs production VPNs
-
-This is a teaching project. Here's what real VPNs add on top:
-
-**Replay attack prevention** — store a sliding window of seen nonces; reject duplicates. WireGuard uses a 2048-bit bitmap.
-
-**Forward secrecy** — perform a Diffie-Hellman key exchange (WireGuard uses Curve25519) so that compromising the long-term key doesn't expose past sessions.
-
-**Key rotation** — derive per-session keys from the DH exchange; rotate periodically.
-
-**Handshake authentication** — the server should prove it holds the key *before* the client sends real traffic (prevents connecting to an impostor).
-
-**MTU handling** — fragment or clamp TCP MSS to avoid IP fragmentation over the tunnel.
-
-**Obfuscation** — traffic looks like UDP noise; no VPN fingerprint. WireGuard has no response to unauthenticated packets at all.
-
----
-
-## How WireGuard is different
-
-WireGuard implements the same loop but adds:
-
-- **Noise_IKpsk2 handshake** — Curve25519 ECDH, authenticated with long-term static keys, producing ephemeral session keys (forward secrecy)
-- **ChaCha20-Poly1305** instead of AES-GCM (faster on CPUs without AES-NI)
-- **Silent rejection** of all unauthenticated packets — the server is invisible until you prove you have the key
-- **Implemented in the kernel** — the crypto hot path runs in kernel space; context-switch overhead is eliminated
-
-tinyvpn shows you the skeleton. WireGuard is the skeleton with armour, muscles, and a nervous system.
-
----
-
-## License
-
-MIT — do whatever you want. Learn, fork, break things, build things.
+- Multi-hop works best with a reduced MTU because each nested hop consumes space.
+- The implementation is still user-space Python, so it prioritizes correctness and observability over kernel-level throughput.
+- If you want strict production hardening beyond this repo, the next steps would be cookie-based DoS resistance, explicit peer authorization policies, config signing, and broader integration tests with live Wintun adapters.

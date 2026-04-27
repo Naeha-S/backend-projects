@@ -1,0 +1,38 @@
+{
+  "role": "client",
+  "node_name": "laptop",
+  "private_key_file": "keys/client.key",
+  "listen_host": "0.0.0.0",
+  "listen_port": 0,
+  "tun": {
+    "name": "TinyVPN-Client",
+    "address": "10.44.0.2",
+    "netmask": "255.255.255.0",
+    "gateway": "10.44.0.1",
+    "mtu": 1360,
+    "dns_servers": ["1.1.1.1"],
+    "redirect_default_route": false,
+    "extra_routes": []
+  },
+  "peers": [
+    {
+      "name": "entry",
+      "host": "127.0.0.1",
+      "port": 8888,
+      "public_key_file": "keys/server.pub",
+      "advertised_tun_ip": "10.44.0.1",
+      "persistent_keepalive": 15
+    }
+  ],
+  "route_chain": ["entry"],
+  "dashboard": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8081
+  },
+  "debug": {
+    "dpi": false,
+    "log_level": "INFO"
+  },
+  "enable_plugins": ["logging"]
+}

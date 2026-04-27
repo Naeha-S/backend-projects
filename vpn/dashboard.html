@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyVPN v3 | Stats</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
+
+        :root {
+            --bg: #050805;
+            --panel: #0a100a;
+            --panel-2: #0d150d;
+            --border: #173117;
+            --text: #e7ffe7;
+            --muted: #7ab27a;
+            --accent: #39ff88;
+            --accent-dim: #1f8f4d;
+            --warn: #ff7a7a;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .shell {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            padding-bottom: 18px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .title {
+            margin: 0;
+            font: 700 34px 'JetBrains Mono', monospace;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: -0.04em;
+        }
+
+        .subtitle {
+            margin-top: 8px;
+            color: var(--muted);
+            font: 14px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font: 700 13px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            color: var(--text);
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--warn);
+        }
+
+        .dot.live {
+            background: var(--accent);
+            box-shadow: 0 0 12px rgba(57, 255, 136, 0.75);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+        }
+
+        .label {
+            display: block;
+            color: var(--muted);
+            font: 11px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .value {
+            font: 700 34px 'JetBrains Mono', monospace;
+            line-height: 1;
+            color: var(--text);
+        }
+
+        .sub {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .meta-strip {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 14px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+        }
+
+        .panel-title {
+            margin: 0 0 16px;
+            color: var(--muted);
+            font: 700 13px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .chart-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .chart-note {
+            color: var(--muted);
+            font: 11px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .chart {
+            height: 180px;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            background:
+                linear-gradient(to bottom, rgba(57,255,136,0.04), rgba(57,255,136,0.01)),
+                repeating-linear-gradient(
+                    to top,
+                    transparent 0,
+                    transparent 35px,
+                    rgba(23,49,23,0.65) 35px,
+                    rgba(23,49,23,0.65) 36px
+                );
+        }
+
+        .chart svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .chart-area {
+            fill: rgba(57, 255, 136, 0.12);
+        }
+
+        .chart-line {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .chart-line-dim {
+            fill: none;
+            stroke: rgba(57,255,136,0.45);
+            stroke-width: 1.4;
+            stroke-dasharray: 5 5;
+        }
+
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .mini {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .mini strong {
+            display: block;
+            font: 700 18px 'JetBrains Mono', monospace;
+        }
+
+        .mini span {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .peer-list, .counter-list, .log-list, .meta-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .peer, .counter, .log, .meta-row {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .peer-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .peer-id {
+            font: 700 16px 'JetBrains Mono', monospace;
+        }
+
+        .peer-status {
+            color: var(--accent);
+            font: 700 11px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .peer-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .metric {
+            border-top: 1px solid var(--border);
+            padding-top: 8px;
+        }
+
+        .metric strong {
+            display: block;
+            font: 700 14px 'JetBrains Mono', monospace;
+        }
+
+        .metric span {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .counter {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .counter-name {
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .counter-value {
+            font: 700 15px 'JetBrains Mono', monospace;
+            color: var(--accent);
+        }
+
+        .log {
+            font: 12px/1.5 'JetBrains Mono', monospace;
+            color: var(--muted);
+        }
+
+        .empty {
+            color: var(--muted);
+            font: 13px 'JetBrains Mono', monospace;
+            padding: 10px 0;
+        }
+
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .meta-name {
+            color: var(--muted);
+            font: 12px 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .meta-value {
+            color: var(--text);
+            font: 700 13px 'JetBrains Mono', monospace;
+            text-align: right;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .meta-strip { grid-template-columns: repeat(2, 1fr); }
+            .main { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 720px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .meta-strip { grid-template-columns: 1fr; }
+            .mini-grid, .peer-metrics { grid-template-columns: 1fr; }
+            .topbar { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="topbar">
+            <div>
+                <h1 class="title">TinyVPN V3.0</h1>
+                <div class="subtitle">Live transport and control-plane statistics</div>
+            </div>
+            <div class="status">
+                <div id="status-dot" class="dot"></div>
+                <span id="status-text">Disconnected</span>
+            </div>
+        </div>
+
+        <section class="stats-grid">
+            <div class="card">
+                <span class="label">Active Peers</span>
+                <div class="value" id="active-peers">0</div>
+                <div class="sub">authenticated sessions</div>
+            </div>
+            <div class="card">
+                <span class="label">Average RTT</span>
+                <div class="value" id="avg-rtt">N/A</div>
+                <div class="sub">milliseconds</div>
+            </div>
+            <div class="card">
+                <span class="label">Total Pacing</span>
+                <div class="value" id="total-pacing">0</div>
+                <div class="sub">KB/s rolling throughput</div>
+            </div>
+            <div class="card">
+                <span class="label">Packet Loss</span>
+                <div class="value" id="packet-loss">0</div>
+                <div class="sub">aggregate loss count</div>
+            </div>
+            <div class="card">
+                <span class="label">Rekeys</span>
+                <div class="value" id="rekeys">0</div>
+                <div class="sub">control-plane rotations</div>
+            </div>
+            <div class="card">
+                <span class="label">Auth Failures</span>
+                <div class="value" id="auth-failures">0</div>
+                <div class="sub">decrypt and identity failures</div>
+            </div>
+        </section>
+
+        <section class="meta-strip">
+            <div class="card">
+                <span class="label">Uptime</span>
+                <div class="value" id="uptime">0s</div>
+                <div class="sub">process lifetime</div>
+            </div>
+            <div class="card">
+                <span class="label">RX Rate</span>
+                <div class="value" id="rx-rate">0</div>
+                <div class="sub">B/s rolling</div>
+            </div>
+            <div class="card">
+                <span class="label">TX Rate</span>
+                <div class="value" id="tx-rate">0</div>
+                <div class="sub">B/s rolling</div>
+            </div>
+            <div class="card">
+                <span class="label">Last Handshake</span>
+                <div class="value" id="last-handshake">N/A</div>
+                <div class="sub">most recent peer install</div>
+            </div>
+            <div class="card">
+                <span class="label">Fragmentation</span>
+                <div class="value" id="fragmentation-ratio">0%</div>
+                <div class="sub">reassembled / active groups</div>
+            </div>
+        </section>
+
+        <section class="main">
+            <div class="panel">
+                <div class="chart-head">
+                    <h2 class="panel-title" style="margin:0;">Throughput History</h2>
+                    <div class="chart-note">current <span id="chart-current">0 B/s</span> | peak <span id="chart-peak">0 B/s</span></div>
+                </div>
+                <div class="chart" id="chart"></div>
+                <div class="mini-grid">
+                    <div class="mini">
+                        <strong id="total-rx">0 B</strong>
+                        <span>total rx</span>
+                    </div>
+                    <div class="mini">
+                        <strong id="total-tx">0 B</strong>
+                        <span>total tx</span>
+                    </div>
+                    <div class="mini">
+                        <strong id="packet-drops">0</strong>
+                        <span>packet drops</span>
+                    </div>
+                    <div class="mini">
+                        <strong id="fragment-rebuilt">0</strong>
+                        <span>fragments rebuilt</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Subsystem Counters</h2>
+                <div class="counter-list" id="counter-list"></div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Session Metadata</h2>
+                <div class="meta-list" id="meta-list"></div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Peers</h2>
+                <div class="peer-list" id="peer-list"></div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Connection Log</h2>
+                <div class="log-list" id="log-list"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const chart = document.getElementById('chart');
+        const peerList = document.getElementById('peer-list');
+        const counterList = document.getElementById('counter-list');
+        const logList = document.getElementById('log-list');
+        const metaList = document.getElementById('meta-list');
+        const history = Array.from({ length: 42 }, () => ({ rx: 0, tx: 0, total: 0 }));
+        chart.innerHTML = `
+            <svg viewBox="0 0 1000 180" preserveAspectRatio="none">
+                <path id="chart-area" class="chart-area"></path>
+                <path id="chart-line-rx" class="chart-line"></path>
+                <path id="chart-line-tx" class="chart-line-dim"></path>
+            </svg>
+        `;
+
+        function addLog(message) {
+            const entry = document.createElement('div');
+            entry.className = 'log';
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `${time} ${message}`;
+            logList.prepend(entry);
+            while (logList.childNodes.length > 12) {
+                logList.removeChild(logList.lastChild);
+            }
+        }
+
+        function formatBytes(value) {
+            if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)} GB`;
+            if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
+            if (value >= 1_000) return `${(value / 1_000).toFixed(1)} KB`;
+            return `${value} B`;
+        }
+
+        function formatRateBpsToKBps(value) {
+            return Math.round(value / 1024);
+        }
+
+        function formatRate(value) {
+            if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} MB/s`;
+            if (value >= 1_000) return `${(value / 1_000).toFixed(1)} KB/s`;
+            return `${Math.round(value)} B/s`;
+        }
+
+        function formatAge(ts) {
+            if (!ts) return 'N/A';
+            const diff = Math.max(0, Math.round(Date.now() / 1000 - ts));
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+            return `${Math.round(diff / 3600)}h ago`;
+        }
+
+        function formatUptime(seconds) {
+            const s = Math.round(seconds || 0);
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            if (h) return `${h}h ${m}m`;
+            if (m) return `${m}m ${sec}s`;
+            return `${sec}s`;
+        }
+
+        function average(values) {
+            return values.length ? values.reduce((sum, item) => sum + item, 0) / values.length : 0;
+        }
+
+        function renderCounters(counters) {
+            const items = [
+                ['handshake_count', 'Handshakes'],
+                ['rekey_count', 'Rekeys'],
+                ['auth_failures', 'Auth Failures'],
+                ['packet_drops', 'Packet Drops'],
+                ['fragment_reassembled', 'Fragments Reassembled'],
+                ['fragment_rx_pending', 'Fragments Pending']
+            ];
+
+            counterList.innerHTML = items.map(([key, label]) => `
+                <div class="counter">
+                    <div class="counter-name">${label}</div>
+                    <div class="counter-value">${counters[key] ?? 0}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderPeers(peers) {
+            const ids = Object.keys(peers);
+            if (!ids.length) {
+                peerList.innerHTML = `<div class="empty">No live peers reported by backend.</div>`;
+                return;
+            }
+
+            peerList.innerHTML = ids.map((id) => {
+                const peer = peers[id];
+                return `
+                    <div class="peer">
+                        <div class="peer-head">
+                            <div class="peer-id">${id.slice(0, 12)}...</div>
+                            <div class="peer-status">authorized</div>
+                        </div>
+                        <div class="peer-metrics">
+                            <div class="metric">
+                                <strong>${peer.rtt_ms ? Math.round(peer.rtt_ms) : 'N/A'} ms</strong>
+                                <span>rtt</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${formatRate(peer.tx_rate_bps || 0)}</strong>
+                                <span>tx rate</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${formatRate(peer.rx_rate_bps || 0)}</strong>
+                                <span>rx rate</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${formatBytes(peer.tx_bytes || 0)}</strong>
+                                <span>tx total</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${formatBytes(peer.rx_bytes || 0)}</strong>
+                                <span>rx total</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${peer.rekeys ?? 0}</strong>
+                                <span>peer rekeys</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${formatAge(peer.last_handshake_ts)}</strong>
+                                <span>last handshake</span>
+                            </div>
+                            <div class="metric">
+                                <strong>${formatAge(peer.last_rekey_ts)}</strong>
+                                <span>last rekey</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderMeta(snapshot) {
+            const items = [
+                ['Connection Mode', snapshot.connection_mode || 'unknown'],
+                ['Uptime', formatUptime(snapshot.uptime_seconds)],
+                ['Rolling RX', formatRate(snapshot.rx_rate_bps || 0)],
+                ['Rolling TX', formatRate(snapshot.tx_rate_bps || 0)],
+                ['Last Handshake', formatAge(snapshot.last_handshake_ts)],
+                ['Last Rekey', formatAge(snapshot.last_rekey_ts)],
+                ['Fragmentation Ratio', `${(((snapshot.fragmentation_ratio || 0) * 100)).toFixed(1)}%`],
+                ['Peer Errors', String((snapshot.errors || []).length)]
+            ];
+            metaList.innerHTML = items.map(([name, value]) => `
+                <div class="meta-row">
+                    <div class="meta-name">${name}</div>
+                    <div class="meta-value">${value}</div>
+                </div>
+            `).join('');
+        }
+
+        function buildLine(values, maxValue) {
+            const width = 1000;
+            const height = 180;
+            const left = 10;
+            const bottom = 10;
+            const usableHeight = height - 18;
+            const step = (width - left * 2) / Math.max(values.length - 1, 1);
+            return values.map((value, index) => {
+                const x = left + index * step;
+                const y = height - bottom - ((value / maxValue) * usableHeight);
+                return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
+            }).join(' ');
+        }
+
+        function buildArea(values, maxValue) {
+            const width = 1000;
+            const height = 180;
+            const left = 10;
+            const bottom = 10;
+            const usableHeight = height - 18;
+            const step = (width - left * 2) / Math.max(values.length - 1, 1);
+            let path = '';
+            values.forEach((value, index) => {
+                const x = left + index * step;
+                const y = height - bottom - ((value / maxValue) * usableHeight);
+                path += `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)} `;
+            });
+            const lastX = left + (values.length - 1) * step;
+            path += `L${lastX.toFixed(2)},${(height - bottom).toFixed(2)} `;
+            path += `L${left.toFixed(2)},${(height - bottom).toFixed(2)} Z`;
+            return path;
+        }
+
+        function updateChart(rxRateBps, txRateBps) {
+            history.shift();
+            history.push({ rx: rxRateBps, tx: txRateBps, total: rxRateBps + txRateBps });
+            const rxValues = history.map((item) => item.rx);
+            const txValues = history.map((item) => item.tx);
+            const peak = Math.max(1, ...history.map((item) => item.total));
+            document.getElementById('chart-area').setAttribute('d', buildArea(rxValues, peak));
+            document.getElementById('chart-line-rx').setAttribute('d', buildLine(rxValues, peak));
+            document.getElementById('chart-line-tx').setAttribute('d', buildLine(txValues, peak));
+            document.getElementById('chart-current').innerText = formatRate(rxRateBps + txRateBps);
+            document.getElementById('chart-peak').innerText = formatRate(peak);
+        }
+
+        function updateStats(snapshot) {
+            const counters = snapshot.counters || {};
+            const peers = snapshot.peers || {};
+            const peerValues = Object.values(peers);
+
+            const avgRtt = average(peerValues.map((peer) => Number(peer.rtt_ms || 0)).filter(Boolean));
+            const totalPacingBps = Number(snapshot.rx_rate_bps || 0) + Number(snapshot.tx_rate_bps || 0);
+            const totalLoss = peerValues.reduce((sum, peer) => sum + Number(peer.packet_loss || 0), 0);
+            const totalRx = peerValues.reduce((sum, peer) => sum + Number(peer.rx_bytes || 0), 0);
+            const totalTx = peerValues.reduce((sum, peer) => sum + Number(peer.tx_bytes || 0), 0);
+
+            document.getElementById('active-peers').innerText = snapshot.active_peers ?? peerValues.length;
+            document.getElementById('avg-rtt').innerText = avgRtt ? Math.round(avgRtt) : 'N/A';
+            document.getElementById('total-pacing').innerText = formatRateBpsToKBps(totalPacingBps);
+            document.getElementById('packet-loss').innerText = totalLoss;
+            document.getElementById('rekeys').innerText = counters.rekey_count ?? 0;
+            document.getElementById('auth-failures').innerText = counters.auth_failures ?? 0;
+            document.getElementById('uptime').innerText = formatUptime(snapshot.uptime_seconds);
+            document.getElementById('rx-rate').innerText = formatRate(snapshot.rx_rate_bps || 0);
+            document.getElementById('tx-rate').innerText = formatRate(snapshot.tx_rate_bps || 0);
+            document.getElementById('last-handshake').innerText = formatAge(snapshot.last_handshake_ts);
+            document.getElementById('fragmentation-ratio').innerText = `${(((snapshot.fragmentation_ratio || 0) * 100)).toFixed(1)}%`;
+            document.getElementById('total-rx').innerText = formatBytes(totalRx);
+            document.getElementById('total-tx').innerText = formatBytes(totalTx);
+            document.getElementById('packet-drops').innerText = counters.packet_drops ?? 0;
+            document.getElementById('fragment-rebuilt').innerText = counters.fragment_reassembled ?? 0;
+
+            renderCounters(counters);
+            renderMeta(snapshot);
+            renderPeers(peers);
+            updateChart(Number(snapshot.rx_rate_bps || 0), Number(snapshot.tx_rate_bps || 0));
+        }
+
+        function setStatus(connected, text) {
+            const dot = document.getElementById('status-dot');
+            const label = document.getElementById('status-text');
+            dot.className = connected ? 'dot live' : 'dot';
+            label.innerText = text;
+        }
+
+        function connect() {
+            const socket = new WebSocket('ws://127.0.0.1:8080/ws');
+
+            socket.onopen = () => {
+                setStatus(true, 'Live');
+                addLog('WebSocket connected to /ws');
+            };
+
+            socket.onmessage = (event) => {
+                const snapshot = JSON.parse(event.data);
+                updateStats(snapshot);
+            };
+
+            socket.onerror = () => {
+                addLog('WebSocket error');
+            };
+
+            socket.onclose = () => {
+                setStatus(false, 'Disconnected');
+                addLog('WebSocket disconnected, retrying in 3s');
+                setTimeout(connect, 3000);
+            };
+        }
+
+        addLog('Waiting for backend telemetry on ws://127.0.0.1:8080/ws');
+        renderCounters({});
+        renderMeta({});
+        renderPeers({});
+        connect();
+    </script>
+</body>
+</html>
