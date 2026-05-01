@@ -1,3 +1,3 @@
-"""Compatibility exports for the upgraded package."""
+"""Compatibility exports for NaehaVPN."""
 
-from tinyvpn.crypto import *  # noqa: F401,F403
+from naehavpn.crypto import *  # noqa: F401,F403

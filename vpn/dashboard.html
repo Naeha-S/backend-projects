@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TinyVPN v3 | Stats</title>
+    <title>Naeha VPN v3 | Stats</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
 
@@ -17,6 +17,25 @@
             --accent: #39ff88;
             --accent-dim: #1f8f4d;
             --warn: #ff7a7a;
+        }
+        
+        /* Client dashboard (green) */
+        body.client-mode {
+            --accent: #39ff88;
+            --border: #173117;
+            --muted: #7ab27a;
+        }
+        
+        /* Server dashboard (pink/magenta) */
+        body.server-mode {
+            --accent: #ff66ff;
+            --border: #6b1b6b;
+            --muted: #d77ab2;
+        }
+        
+        body.server-mode .dot.live {
+            background: #ff66ff;
+            box-shadow: 0 0 12px rgba(255, 102, 255, 0.75);
         }
 
         * { box-sizing: border-box; }
@@ -341,7 +360,7 @@
     <div class="shell">
         <div class="topbar">
             <div>
-                <h1 class="title">TinyVPN V3.0</h1>
+                <h1 class="title">Naeha VPN V3.0</h1>
                 <div class="subtitle">Live transport and control-plane statistics</div>
             </div>
             <div class="status">
@@ -703,11 +722,17 @@
         }
 
         function connect() {
-            const socket = new WebSocket('ws://127.0.0.1:8080/ws');
+            // Determine WebSocket URL from current location
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname;
+            const port = window.location.port;
+            const wsUrl = `${protocol}//${host}:${port}/ws`;
+            
+            const socket = new WebSocket(wsUrl);
 
             socket.onopen = () => {
                 setStatus(true, 'Live');
-                addLog('WebSocket connected to /ws');
+                addLog(`WebSocket connected to ${wsUrl}`);
             };
 
             socket.onmessage = (event) => {
@@ -721,15 +746,29 @@
 
             socket.onclose = () => {
                 setStatus(false, 'Disconnected');
-                addLog('WebSocket disconnected, retrying in 3s');
+                addLog(`WebSocket disconnected from ${wsUrl}, retrying in 3s`);
                 setTimeout(connect, 3000);
             };
         }
 
-        addLog('Waiting for backend telemetry on ws://127.0.0.1:8080/ws');
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.hostname;
+        const port = window.location.port;
+        const wsUrl = `${protocol}//${host}:${port}/ws`;
+        addLog(`Connecting to backend telemetry on ${wsUrl}`);
         renderCounters({});
         renderMeta({});
         renderPeers({});
+        
+        // Detect if this is client (port 8081) or server (port 8080) and apply theme
+        if (window.location.port === '8081' || window.location.port === '') {
+            document.body.classList.add('client-mode');
+            console.log('Client mode: Green theme');
+        } else if (window.location.port === '8080') {
+            document.body.classList.add('server-mode');
+            console.log('Server mode: Pink theme');
+        }
+        
         connect();
     </script>
 </body>

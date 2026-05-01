@@ -1,3 +1,3 @@
-"""Compatibility exports for the upgraded package."""
+"""Compatibility exports for NaehaVPN."""
 
-from tinyvpn.tun import *  # noqa: F401,F403
+from naehavpn.tunnel import *  # noqa: F401,F403

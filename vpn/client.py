@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""tinyvpn client entrypoint."""
+"""NaehaVPN client entrypoint."""
 
-from tinyvpn.node import main
-from tinyvpn.tun import require_admin
+from naehavpn.node import main
+from naehavpn.tunnel import require_admin
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""FastAPI monitoring backend."""
+"""FastAPI monitoring backend for NaehaVPN."""
 
 from __future__ import annotations
 
@@ -7,13 +7,11 @@ import threading
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.websockets import WebSocketDisconnect
 import uvicorn
 
 from .metrics import MetricsRegistry
-
-from starlette.websockets import WebSocketDisconnect
 
 
 class DashboardServer:
@@ -22,7 +20,7 @@ class DashboardServer:
         self.host = host
         self.port = port
         self.interval_seconds = interval_seconds
-        self.app = FastAPI(title="tinyvpn dashboard", version="3.0")
+        self.app = FastAPI(title="NaehaVPN dashboard", version="1.0")
         self._mount_routes()
 
     def _mount_routes(self) -> None:
@@ -33,7 +31,7 @@ class DashboardServer:
 
         @self.app.get("/health")
         async def health() -> JSONResponse:
-            return JSONResponse({"status": "ok"})
+            return JSONResponse({"status": "ok", "product": "NaehaVPN"})
 
         @self.app.get("/api/snapshot")
         async def snapshot() -> JSONResponse:
@@ -47,13 +45,13 @@ class DashboardServer:
                     await websocket.send_json(self.metrics.snapshot())
                     await asyncio.sleep(self.interval_seconds)
             except WebSocketDisconnect:
-                pass  # Client disconnected gracefully
+                pass
             except Exception:
-                pass  # Ignore other connection-related errors on exit
+                pass
             finally:
                 try:
                     await websocket.close()
-                except:
+                except Exception:
                     pass
 
     def start(self) -> None:
