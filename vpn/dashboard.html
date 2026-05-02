@@ -19,18 +19,32 @@
             --warn: #ff7a7a;
         }
         
-        /* Client dashboard (green) */
+        /* Client dashboard (Matrix Green) */
         body.client-mode {
             --accent: #39ff88;
+            --accent-rgb: 57, 255, 136;
             --border: #173117;
             --muted: #7ab27a;
+            --panel-glow: rgba(57, 255, 136, 0.05);
+            --bg-pattern: 
+                linear-gradient(rgba(57, 255, 136, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(57, 255, 136, 0.03) 1px, transparent 1px);
+            --bg-size: 40px 40px;
         }
         
-        /* Server dashboard (pink/magenta) */
+        /* Server dashboard (Cyberpunk Magenta) */
         body.server-mode {
-            --accent: #ff66ff;
-            --border: #6b1b6b;
+            --accent: #ff00ff;
+            --accent-rgb: 255, 0, 255;
+            --border: #330033;
             --muted: #d77ab2;
+            --bg: #050005;
+            --panel: #0f000f;
+            --panel-2: #1a001a;
+            --panel-glow: rgba(255, 0, 255, 0.05);
+            --bg-pattern: 
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 255, 0.02) 3px, transparent 3px);
+            --bg-size: 100% 4px;
         }
         
         body.server-mode .dot.live {
@@ -43,8 +57,11 @@
         body {
             margin: 0;
             background: var(--bg);
+            background-image: var(--bg-pattern);
+            background-size: var(--bg-size);
             color: var(--text);
             font-family: 'Inter', sans-serif;
+            min-height: 100vh;
         }
 
         .shell {
@@ -53,29 +70,213 @@
             padding: 20px;
         }
 
+        .hero-section {
+            padding: 80px 0 60px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 40px;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, rgba(var(--accent-rgb), 0.05) 0%, transparent 70%);
+        }
+
+        .hero-title {
+            font: 900 140px 'JetBrains Mono', monospace;
+            margin: 0;
+            letter-spacing: -12px;
+            text-transform: uppercase;
+            background: linear-gradient(to bottom, #fff 30%, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 40px rgba(var(--accent-rgb), 0.3));
+            line-height: 0.8;
+            position: relative;
+        }
+
+        .hero-title::after {
+            content: 'v3.2';
+            position: absolute;
+            top: 20px;
+            right: 20%;
+            font-size: 14px;
+            letter-spacing: 2px;
+            -webkit-text-fill-color: var(--accent);
+            opacity: 0.6;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .hero-stat-item {
+            text-align: left;
+            border-left: 2px solid var(--border);
+            padding-left: 20px;
+        }
+
+        .hero-stat-label {
+            display: block;
+            font: 700 10px 'JetBrains Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+
+        .hero-stat-value {
+            display: block;
+            font: 700 24px 'JetBrains Mono', monospace;
+            color: var(--text);
+            text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
+        }
+
+        .hud-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--accent);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hud-panel::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 100px;
+            background: linear-gradient(to bottom, rgba(var(--accent-rgb), 0.1), transparent);
+            pointer-events: none;
+        }
+
+        .hud-item h3 {
+            margin: 0 0 8px;
+            font: 700 11px 'JetBrains Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hud-item div {
+            font: 700 18px 'JetBrains Mono', monospace;
+            color: var(--text);
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            background: rgba(var(--accent-rgb), 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            font: 700 11px 'JetBrains Mono', monospace;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse-glow 1.5s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.7); }
+            100% { transform: scale(1.1); opacity: 0.5; box-shadow: 0 0 10px 10px rgba(var(--accent-rgb), 0); }
+        }
+
+        .hero-subtitle {
+            font: 700 14px 'JetBrains Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .hero-subtitle .sep {
+            width: 40px;
+            height: 1px;
+            background: var(--border);
+        }
+
         .topbar {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            gap: 16px;
-            padding-bottom: 18px;
-            margin-bottom: 18px;
-            border-bottom: 1px solid var(--border);
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 30px;
         }
 
-        .title {
+        .title-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .title-section h1 {
             margin: 0;
-            font: 700 34px 'JetBrains Mono', monospace;
+            font: 700 24px 'JetBrains Mono', monospace;
             color: var(--accent);
             text-transform: uppercase;
-            letter-spacing: -0.04em;
         }
 
-        .subtitle {
-            margin-top: 8px;
-            color: var(--muted);
-            font: 14px 'JetBrains Mono', monospace;
+        body.server-mode .title-section h1 {
+            text-shadow: 0 0 20px rgba(255, 102, 255, 0.2);
+        }
+
+        .mode-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--accent);
+            color: var(--bg);
+            font: 700 11px 'JetBrains Mono', monospace;
+            border-radius: 4px;
             text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        body.server-mode .mode-badge {
+            background: #ff66ff;
+        }
+
+        .mode-details {
+            font: 13px 'JetBrains Mono', monospace;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .mode-details strong {
+            color: var(--text);
+            display: block;
+        }
+
+        .panel, .card, .topbar {
+            transition: all 0.3s ease;
+        }
+
+        body.client-mode .panel, body.client-mode .card, body.client-mode .topbar {
+            box-shadow: 0 10px 30px -10px rgba(57, 255, 136, 0.05);
+        }
+
+        body.server-mode .panel, body.server-mode .card, body.server-mode .topbar {
+            box-shadow: 0 10px 30px -10px rgba(255, 102, 255, 0.05);
         }
 
         .status {
@@ -196,6 +397,18 @@
                 );
         }
 
+        body.server-mode .chart {
+            background:
+                linear-gradient(to bottom, rgba(255,102,255,0.04), rgba(255,102,255,0.01)),
+                repeating-linear-gradient(
+                    to top,
+                    transparent 0,
+                    transparent 35px,
+                    rgba(107,27,107,0.65) 35px,
+                    rgba(107,27,107,0.65) 36px
+                );
+        }
+
         .chart svg {
             width: 100%;
             height: 100%;
@@ -204,6 +417,10 @@
 
         .chart-area {
             fill: rgba(57, 255, 136, 0.12);
+        }
+
+        body.server-mode .chart-area {
+            fill: rgba(255, 102, 255, 0.12);
         }
 
         .chart-line {
@@ -219,6 +436,10 @@
             stroke: rgba(57,255,136,0.45);
             stroke-width: 1.4;
             stroke-dasharray: 5 5;
+        }
+
+        body.server-mode .chart-line-dim {
+            stroke: rgba(255,102,255,0.45);
         }
 
         .mini-grid {
@@ -358,10 +579,41 @@
 </head>
 <body>
     <div class="shell">
+        <header class="hero-section">
+            <h1 class="hero-title">NAEHA VPN</h1>
+            <div class="hero-subtitle" style="margin-top: 10px; opacity: 0.5; font-size: 12px; letter-spacing: 4px; font-weight: 700;">COMMAND CENTER</div>
+        </header>
+
+        <section class="hud-panel">
+            <div class="hud-item">
+                <h3>Node Cluster</h3>
+                <div id="hud-cluster">NAEHA-MESH-V3</div>
+            </div>
+            <div class="hud-item">
+                <h3>Virtual Address</h3>
+                <div id="hud-vip">10.44.0.x</div>
+            </div>
+            <div class="hud-item">
+                <h3>Hardware Mode</h3>
+                <div id="hud-hw">AES-NI ENABLED</div>
+            </div>
+            <div class="hud-item">
+                <h3>Global Status</h3>
+                <div class="status-pill">
+                    <div class="pulse"></div>
+                    <span id="hud-status-text">SYSTEM SECURE</span>
+                </div>
+            </div>
+        </section>
+
         <div class="topbar">
-            <div>
-                <h1 class="title" id="dashboard-title">Naeha VPN V3.0</h1>
-                <div class="subtitle" id="dashboard-subtitle">Live transport and control-plane statistics</div>
+            <div class="title-section">
+                <div class="mode-badge" id="mode-badge" style="margin:0;">Client Mode</div>
+                <div class="mode-details" style="display:flex; gap: 15px; align-items: center;">
+                    <span id="mode-port">127.0.0.1:8081</span>
+                    <span style="color:var(--border)">|</span>
+                    <strong id="mode-role" style="margin:0; display:inline;">CLIENT</strong>
+                </div>
             </div>
             <div class="status">
                 <div id="status-dot" class="dot"></div>
@@ -376,24 +628,24 @@
                 <div class="sub">authenticated sessions</div>
             </div>
             <div class="card">
-                <span class="label">Average RTT</span>
-                <div class="value" id="avg-rtt">N/A</div>
-                <div class="sub">milliseconds</div>
-            </div>
-            <div class="card">
-                <span class="label">Total Pacing</span>
-                <div class="value" id="total-pacing">0</div>
-                <div class="sub">KB/s rolling throughput</div>
-            </div>
-            <div class="card">
                 <span class="label">Packet Loss</span>
                 <div class="value" id="packet-loss">0</div>
                 <div class="sub">aggregate loss count</div>
             </div>
             <div class="card">
+                <span class="label">Total Pacing</span>
+                <div class="value" id="total-pacing">0 B/s</div>
+                <div class="sub">rolling throughput</div>
+            </div>
+            <div class="card">
                 <span class="label">Rekeys</span>
                 <div class="value" id="rekeys">0</div>
                 <div class="sub">control-plane rotations</div>
+            </div>
+            <div class="card">
+                <span class="label">Average RTT</span>
+                <div class="value" id="avg-rtt">N/A</div>
+                <div class="sub">milliseconds</div>
             </div>
             <div class="card">
                 <span class="label">Auth Failures</span>
@@ -481,8 +733,6 @@
 
     <script>
         const chart = document.getElementById('chart');
-        const dashboardTitle = document.getElementById('dashboard-title');
-        const dashboardSubtitle = document.getElementById('dashboard-subtitle');
         const peerList = document.getElementById('peer-list');
         const counterList = document.getElementById('counter-list');
         const logList = document.getElementById('log-list');
@@ -703,7 +953,7 @@
 
             document.getElementById('active-peers').innerText = snapshot.active_peers ?? peerValues.length;
             document.getElementById('avg-rtt').innerText = avgRtt ? Math.round(avgRtt) : 'N/A';
-            document.getElementById('total-pacing').innerText = formatRateBpsToKBps(totalPacingBps);
+            document.getElementById('total-pacing').innerText = formatRate(totalPacingBps);
             document.getElementById('packet-loss').innerText = totalLoss;
             document.getElementById('rekeys').innerText = counters.rekey_count ?? 0;
             document.getElementById('auth-failures').innerText = counters.auth_failures ?? 0;
@@ -732,19 +982,33 @@
 
         function configureDashboardIdentity() {
             const port = window.location.port;
+            const modeBadge = document.getElementById('mode-badge');
+            const modePort = document.getElementById('mode-port');
+            const modeRole = document.getElementById('mode-role');
+
             if (port === '8080') {
                 document.body.classList.add('server-mode');
-                dashboardTitle.innerText = 'SERVER DASHBOARD :8080';
-                dashboardSubtitle.innerText = 'Live transport and control-plane statistics';
+                modeBadge.innerText = 'Server Mode';
+                document.getElementById('hud-cluster').innerText = 'CORE-SVR-HUB';
+                document.getElementById('hud-vip').innerText = '10.44.0.1';
+                document.getElementById('hud-hw').innerText = 'PHYSICAL-SVR';
+                modePort.innerText = '127.0.0.1:8080';
+                modeRole.innerText = 'SERVER';
                 return;
             }
             if (port === '8081') {
                 document.body.classList.add('client-mode');
-                dashboardTitle.innerText = 'CLIENT DASHBOARD :8081';
-                dashboardSubtitle.innerText = 'Live transport and control-plane statistics';
+                modeBadge.innerText = 'Client Mode';
+                document.getElementById('hud-cluster').innerText = 'REMOTE-CLT-NODE';
+                document.getElementById('hud-vip').innerText = '10.44.0.2';
+                document.getElementById('hud-hw').innerText = 'VIRTUAL-TUNNEL';
+                modePort.innerText = '127.0.0.1:8081';
+                modeRole.innerText = 'CLIENT';
                 return;
             }
-            dashboardTitle.innerText = `Naeha VPN Dashboard :${port || 'unknown'}`;
+            modeBadge.innerText = 'Custom Mode';
+            modePort.innerText = `127.0.0.1:${port || 'unknown'}`;
+            modeRole.innerText = 'VPN NODE';
         }
 
         function connect() {
@@ -787,15 +1051,6 @@
         renderCounters({});
         renderMeta({});
         renderPeers({});
-        
-        // Detect if this is client (port 8081) or server (port 8080) and apply theme
-        if (window.location.port === '8081' || window.location.port === '') {
-            document.body.classList.add('client-mode');
-            console.log('Client mode: Green theme');
-        } else if (window.location.port === '8080') {
-            document.body.classList.add('server-mode');
-            console.log('Server mode: Pink theme');
-        }
         
         connect();
     </script>
