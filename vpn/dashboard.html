@@ -360,8 +360,8 @@
     <div class="shell">
         <div class="topbar">
             <div>
-                <h1 class="title">Naeha VPN V3.0</h1>
-                <div class="subtitle">Live transport and control-plane statistics</div>
+                <h1 class="title" id="dashboard-title">Naeha VPN V3.0</h1>
+                <div class="subtitle" id="dashboard-subtitle">Live transport and control-plane statistics</div>
             </div>
             <div class="status">
                 <div id="status-dot" class="dot"></div>
@@ -481,6 +481,8 @@
 
     <script>
         const chart = document.getElementById('chart');
+        const dashboardTitle = document.getElementById('dashboard-title');
+        const dashboardSubtitle = document.getElementById('dashboard-subtitle');
         const peerList = document.getElementById('peer-list');
         const counterList = document.getElementById('counter-list');
         const logList = document.getElementById('log-list');
@@ -546,20 +548,27 @@
 
         function renderCounters(counters) {
             const items = [
+                ['socket_packets_received', 'Socket Packets Received'],
+                ['packets_decrypted_success', 'Decrypt Success'],
+                ['packets_decrypted_failed', 'Decrypt Failed'],
+                ['packets_written_to_tun', 'Written To TUN'],
                 ['handshake_count', 'Handshakes'],
                 ['rekey_count', 'Rekeys'],
                 ['auth_failures', 'Auth Failures'],
-                ['packet_drops', 'Packet Drops'],
+                ['dropped_packets', 'Packet Drops'],
                 ['fragment_reassembled', 'Fragments Reassembled'],
                 ['fragment_rx_pending', 'Fragments Pending']
             ];
 
-            counterList.innerHTML = items.map(([key, label]) => `
+            const visibleItems = items.filter(([key]) => Number(counters[key] ?? 0) > 0);
+            const rows = (visibleItems.length ? visibleItems : items.slice(0, 4)).map(([key, label]) => `
                 <div class="counter">
                     <div class="counter-name">${label}</div>
                     <div class="counter-value">${counters[key] ?? 0}</div>
                 </div>
             `).join('');
+
+            counterList.innerHTML = rows || `<div class="empty">No subsystem activity reported yet.</div>`;
         }
 
         function renderPeers(peers) {
@@ -705,7 +714,7 @@
             document.getElementById('fragmentation-ratio').innerText = `${(((snapshot.fragmentation_ratio || 0) * 100)).toFixed(1)}%`;
             document.getElementById('total-rx').innerText = formatBytes(totalRx);
             document.getElementById('total-tx').innerText = formatBytes(totalTx);
-            document.getElementById('packet-drops').innerText = counters.packet_drops ?? 0;
+            document.getElementById('packet-drops').innerText = counters.dropped_packets ?? 0;
             document.getElementById('fragment-rebuilt').innerText = counters.fragment_reassembled ?? 0;
 
             renderCounters(counters);
@@ -719,6 +728,23 @@
             const label = document.getElementById('status-text');
             dot.className = connected ? 'dot live' : 'dot';
             label.innerText = text;
+        }
+
+        function configureDashboardIdentity() {
+            const port = window.location.port;
+            if (port === '8080') {
+                document.body.classList.add('server-mode');
+                dashboardTitle.innerText = 'SERVER DASHBOARD :8080';
+                dashboardSubtitle.innerText = 'Live transport and control-plane statistics';
+                return;
+            }
+            if (port === '8081') {
+                document.body.classList.add('client-mode');
+                dashboardTitle.innerText = 'CLIENT DASHBOARD :8081';
+                dashboardSubtitle.innerText = 'Live transport and control-plane statistics';
+                return;
+            }
+            dashboardTitle.innerText = `Naeha VPN Dashboard :${port || 'unknown'}`;
         }
 
         function connect() {
@@ -750,6 +776,8 @@
                 setTimeout(connect, 3000);
             };
         }
+
+        configureDashboardIdentity();
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.hostname;
