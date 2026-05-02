@@ -1,0 +1,192 @@
+
+<h2 class="sr-only">Adversarial framing engine — generates non-obvious, validity-scored approaches to any problem</h2>
+
+<style>
+.ps{flex:1;padding:9px 6px;text-align:center;font-size:11px;font-family:var(--font-mono);color:var(--color-text-tertiary);border-right:0.5px solid var(--color-border-tertiary);}
+.ps:last-child{border-right:none;}
+.ps.go{color:var(--color-text-info);background:var(--color-background-info);}
+.ps.ok{color:var(--color-text-success);background:var(--color-background-success);}
+.ps.bad{color:var(--color-text-danger);}
+.rc{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:12px;}
+.rc.top{border:1.5px solid var(--color-border-success);}
+.ltag{display:inline-block;font-family:var(--font-mono);font-size:10px;padding:2px 8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);}
+.sgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;}
+.sc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:6px 8px;}
+.sl{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:3px;}
+.sv{font-size:15px;font-weight:500;font-family:var(--font-mono);color:var(--color-text-primary);}
+.sb{height:3px;border-radius:2px;background:var(--color-border-tertiary);margin-top:5px;}
+.sf{height:100%;border-radius:2px;}
+.tw{display:inline-block;font-size:11px;padding:2px 7px;border-radius:var(--border-radius-md);margin:2px 2px 2px 0;}
+.tw.wk{background:var(--color-background-warning);color:var(--color-text-warning);}
+.tw.fm{background:var(--color-background-danger);color:var(--color-text-danger);}
+</style>
+
+<div style="padding:1rem 0;">
+
+  <div style="margin-bottom:1.25rem;">
+    <p style="margin:0 0 4px;font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);letter-spacing:0.1em;">ADVERSARIAL FRAMING ENGINE</p>
+    <p style="margin:0;font-size:13px;color:var(--color-text-secondary);line-height:1.55;">Extracts the consensus answer, attacks it through 5 adversarial lenses, scores validity, runs a critic pass, then ranks defensible non-obvious approaches.</p>
+  </div>
+
+  <textarea id="inp" placeholder="What problem do you want non-obvious approaches for?" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;margin-bottom:1.25rem;">
+    <span id="err" style="font-size:12px;color:var(--color-text-danger);"></span>
+    <button id="runBtn" onclick="run()">Run analysis ↗</button>
+  </div>
+
+  <div id="pw" style="display:none;margin-bottom:1.5rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;">
+    <div style="display:flex;">
+      <div class="ps" id="p1">1 · consensus</div>
+      <div class="ps" id="p2">2 · lenses</div>
+      <div class="ps" id="p3">3 · validity</div>
+      <div class="ps" id="p4">4 · critic</div>
+      <div class="ps" id="p5">5 · ranked</div>
+    </div>
+  </div>
+
+  <div id="out"></div>
+
+</div>
+
+<script>
+const API="https://api.anthropic.com/v1/messages";
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function sp(n,c){document.getElementById("p"+n).className="ps "+c;}
+
+async function llm(sys,usr){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:sys,messages:[{role:"user",content:usr}]})});
+  const d=await r.json();
+  const txt=(d.content||[]).map(b=>b.text||"").join("");
+  const m=txt.match(/\{[\s\S]*\}/);
+  if(!m)throw new Error("No JSON returned");
+  return JSON.parse(m[0]);
+}
+
+function composite(s,c){
+  const n=s.novelty||0.5,f=s.feasibility||0.5,ri=s.risk||0.5,ei=s.expected_impact||0.5,cd=c.confidence_drop||0.2;
+  return ((n*0.25+f*0.35+ei*0.35)*(1-ri*0.15))*(1-cd*0.3);
+}
+
+function bar(pct,col){return `<div class="sb"><div class="sf" style="width:${Math.round(pct)}%;background:${col};"></div></div>`;}
+
+function renderConsensus(c1){
+  const pct=Math.round((c1.pressure_score||0.7)*100);
+  const label=c1.pressure_label||"moderate";
+  const col=pct>75?"var(--color-text-danger)":pct>50?"var(--color-text-warning)":"var(--color-text-success)";
+  const note=pct>70?"High pressure — divergent approaches carry more value here.":"Weak consensus — the baseline is unstable. Novel approaches must justify their departure.";
+  return `<div style="background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:1.5rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);">CONSENSUS BASELINE</span>
+      <span style="font-size:10px;font-family:var(--font-mono);color:${col};">pressure ${pct}% · ${esc(label)}</span>
+    </div>
+    <p style="margin:0 0 8px;font-size:14px;color:var(--color-text-primary);line-height:1.6;">${esc(c1.consensus)}</p>
+    <p style="margin:0;font-size:11px;color:var(--color-text-tertiary);">${note}</p>
+  </div>`;
+}
+
+function renderCard(a,s,c,isTop){
+  const cp=composite(s,c);
+  const lmap={first_principles:"first principles",inversion:"inversion",analogical:"analogical",constraint_removal:"constraint removal",second_order:"second order"};
+  const lname=lmap[a.lens]||a.lens;
+  const wk=(c.weaknesses||[]);
+  const fm=(c.failure_modes||[]);
+  const drop=Math.round((c.confidence_drop||0)*100);
+  const nv=Math.round((s.novelty||0)*100);
+  const fv=Math.round((s.feasibility||0)*100);
+  const rv=Math.round((s.risk||0)*100);
+  const iv=Math.round((s.expected_impact||0)*100);
+  const riskCol=rv>65?"#E24B4A":"#BA7517";
+
+  return `<div class="rc${isTop?" top":""}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div>${isTop?`<div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-success);margin-bottom:4px;">top ranked</div>`:""}
+        <span class="ltag">${lname}</span>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);">composite</div>
+        <div style="font-size:20px;font-weight:500;font-family:var(--font-mono);">${Math.round(cp*100)}</div>
+      </div>
+    </div>
+    <p style="margin:0 0 6px;font-size:14px;line-height:1.65;color:var(--color-text-primary);">${esc(a.approach)}</p>
+    <p style="margin:0 0 0;font-size:12px;line-height:1.5;color:var(--color-text-secondary);">${esc(a.reasoning)}</p>
+    <div class="sgrid">
+      <div class="sc"><div class="sl">novelty</div><div class="sv">${nv}</div>${bar(nv,"#378ADD")}</div>
+      <div class="sc"><div class="sl">feasibility</div><div class="sv">${fv}</div>${bar(fv,"#639922")}</div>
+      <div class="sc"><div class="sl">risk</div><div class="sv">${rv}</div>${bar(rv,riskCol)}</div>
+      <div class="sc"><div class="sl">impact</div><div class="sv">${iv}</div>${bar(iv,"#1D9E75")}</div>
+    </div>
+    ${wk.length?`<div style="margin-top:6px;"><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:4px;">weaknesses</div>${wk.map(w=>`<span class="tw wk">${esc(w)}</span>`).join("")}</div>`:""}
+    ${fm.length?`<div style="margin-top:6px;"><div style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:4px;">failure modes</div>${fm.map(f=>`<span class="tw fm">${esc(f)}</span>`).join("")}</div>`:""}
+    <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;gap:10px;">
+      <span style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);white-space:nowrap;">critic confidence drop</span>
+      <div style="flex:1;max-width:100px;">${bar(drop,"#E24B4A")}</div>
+      <span style="font-size:11px;font-family:var(--font-mono);color:var(--color-text-danger);">-${drop}%</span>
+    </div>
+  </div>`;
+}
+
+async function run(){
+  const problem=document.getElementById("inp").value.trim();
+  if(!problem){document.getElementById("err").textContent="Enter a problem first.";return;}
+  document.getElementById("err").textContent="";
+  const btn=document.getElementById("runBtn");
+  btn.disabled=true;btn.textContent="Running...";
+  document.getElementById("pw").style.display="block";
+  document.getElementById("out").innerHTML="";
+  ["p1","p2","p3","p4","p5"].forEach(id=>document.getElementById(id).className="ps");
+
+  try{
+    sp(1,"go");
+    const s1=await llm(
+      `You extract the consensus default answer most people or AI systems give to a problem, and score how strongly converged that consensus is. Respond ONLY with valid JSON, no markdown: {"consensus":"the obvious default answer","pressure_score":0.0,"pressure_label":"weak or moderate or strong or overwhelming"}`,
+      problem
+    );
+    sp(1,"ok");
+
+    sp(2,"go");
+    const atxt=s1.approaches?JSON.stringify(s1.approaches):"";
+    const s2=await llm(
+      `You generate non-obvious approaches to problems by attacking through 5 adversarial lenses. Work AGAINST the consensus. Lenses: first_principles (strip all assumptions, rebuild from zero), inversion (solve the opposite problem), analogical (find solved version in unrelated domain, apply it), constraint_removal (biggest assumed constraint doesn't exist — what's possible now?), second_order (obvious solution creates a new problem — solve that instead). Make each approach specific and actionable. Respond ONLY with valid JSON, no markdown: {"approaches":[{"lens":"...","approach":"specific actionable approach","reasoning":"why this diverges from consensus"}]}`,
+      `Problem: ${problem}\nConsensus to work against: ${s1.consensus}\nGenerate one genuinely non-obvious approach per lens.`
+    );
+    sp(2,"ok");
+
+    sp(3,"go");
+    const apStr=s2.approaches.map((a,i)=>`${i+1}. [${a.lens}] ${a.approach}`).join("\n");
+    const s3=await llm(
+      `You score approaches on 4 dimensions as 0.0-1.0 floats: novelty (divergence from consensus), feasibility (realistic chance of working), risk (implementation/failure risk, higher = riskier), expected_impact (upside if it works). Be honest, not generous. Respond ONLY with valid JSON, no markdown: {"scores":[{"lens":"...","novelty":0.0,"feasibility":0.0,"risk":0.0,"expected_impact":0.0}]}`,
+      `Problem: ${problem}\nConsensus: ${s1.consensus}\nApproaches:\n${apStr}`
+    );
+    sp(3,"ok");
+
+    sp(4,"go");
+    const s4=await llm(
+      `You are an adversarial critic. Find specific flawed assumptions, weaknesses, and realistic failure modes for each approach. Be precise and honest. Respond ONLY with valid JSON, no markdown: {"critiques":[{"lens":"...","weaknesses":["specific weakness 1","specific weakness 2"],"failure_modes":["how it fails in practice"],"confidence_drop":0.0}]}`,
+      `Problem: ${problem}\nApproaches to break:\n${apStr}`
+    );
+    sp(4,"ok");
+
+    sp(5,"go");
+    const merged=s2.approaches.map(a=>{
+      const sc=(s3.scores||[]).find(x=>x.lens===a.lens)||{novelty:.5,feasibility:.5,risk:.5,expected_impact:.5};
+      const cr=(s4.critiques||[]).find(x=>x.lens===a.lens)||{weaknesses:[],failure_modes:[],confidence_drop:.2};
+      return{...a,s:sc,c:cr,score:composite(sc,cr)};
+    }).sort((a,b)=>b.score-a.score);
+
+    let html=renderConsensus(s1);
+    html+=`<p style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:12px;">5 approaches ranked by composite score (novelty 25% · feasibility 35% · impact 35% · risk −15%) × critic correction</p>`;
+    merged.forEach((m,i)=>{html+=renderCard(m,m.s,m.c,i===0);});
+    document.getElementById("out").innerHTML=html;
+    sp(5,"ok");
+
+  }catch(e){
+    document.getElementById("err").textContent="Error: "+e.message;
+    ["p1","p2","p3","p4","p5"].forEach(id=>{
+      if(document.getElementById(id).className.includes("go"))document.getElementById(id).className="ps bad";
+    });
+  }
+
+  btn.disabled=false;btn.textContent="Run analysis ↗";
+}
+</script>

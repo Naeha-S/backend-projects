@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adversarial Framing Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #080808;
+  --surface: #0f0f0f;
+  --surface2: #161616;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e2e2e2;
+  --text2: #888;
+  --text3: #555;
+  --blue: #60a5fa;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --teal: #2dd4bf;
+  --purple: #c084fc;
+}
+
+html { font-size: 16px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* Subtle grid bg */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+/* Header */
+.header { margin-bottom: 2.5rem; }
+.header-eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.header-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.02em;
+}
+.header-title span { color: var(--blue); }
+.header-sub {
+  font-size: 13px;
+  color: var(--text2);
+  max-width: 520px;
+  line-height: 1.65;
+}
+
+/* Input area */
+.input-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.input-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.65;
+  padding: 0.85rem 1rem;
+  resize: vertical;
+  min-height: 90px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+textarea::placeholder { color: var(--text3); }
+textarea:focus { border-color: var(--border2); }
+
+.input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+}
+.err-msg {
+  font-size: 12px;
+  color: var(--red);
+  font-family: 'DM Mono', monospace;
+}
+
+button.run-btn {
+  background: var(--blue);
+  color: #030712;
+  border: none;
+  border-radius: 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+button.run-btn:hover { opacity: 0.88; }
+button.run-btn:active { transform: scale(0.97); }
+button.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Pipeline */
+.pipeline {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+.pipeline.visible { display: block; }
+.pipe-steps { display: flex; border-bottom: 1px solid var(--border); }
+.pipe-step {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--text3);
+  border-right: 1px solid var(--border);
+  transition: background 0.25s, color 0.25s;
+  white-space: nowrap;
+}
+.pipe-step:last-child { border-right: none; }
+.pipe-step .step-num { display: block; font-size: 9px; opacity: 0.5; margin-bottom: 2px; }
+
+.pipe-step.loading {
+  color: var(--blue);
+  background: rgba(96,165,250,0.06);
+  animation: blink 1.2s ease-in-out infinite;
+}
+.pipe-step.done { color: var(--green); background: rgba(74,222,128,0.05); }
+.pipe-step.error { color: var(--red); }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.pipe-log {
+  padding: 0.75rem 1rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  min-height: 36px;
+}
+.pipe-log .log-entry { margin-bottom: 2px; }
+.pipe-log .log-entry.active { color: var(--blue); }
+.pipe-log .log-entry.ok { color: var(--green); }
+.pipe-log .log-entry.fail { color: var(--red); }
+
+/* Results */
+#results { display: none; }
+#results.visible { display: block; }
+
+.consensus-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.35s ease both;
+}
+.section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 0.5rem;
+}
+.consensus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+.consensus-text {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.65;
+}
+.pressure-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pressure-badge.weak  { color: var(--green); border-color: rgba(74,222,128,0.25); background: rgba(74,222,128,0.06); }
+.pressure-badge.moderate { color: var(--amber); border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.06); }
+.pressure-badge.strong,
+.pressure-badge.overwhelming { color: var(--red); border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.06); }
+
+.consensus-note {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.results-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 0.75rem;
+}
+
+/* Result card */
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 12px;
+  animation: fadeUp 0.4s ease both;
+  transition: border-color 0.2s;
+}
+.result-card:hover { border-color: var(--border2); }
+.result-card.top {
+  border-color: rgba(74,222,128,0.25);
+  background: linear-gradient(135deg, rgba(74,222,128,0.03) 0%, var(--surface) 60%);
+}
+
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+.card-left { display: flex; flex-direction: column; gap: 4px; }
+.top-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--green);
+  text-transform: uppercase;
+}
+.lens-badge {
+  display: inline-block;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+}
+.composite-score {
+  text-align: right;
+  flex-shrink: 0;
+}
+.composite-score .cs-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 2px;
+}
+.composite-score .cs-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.approach-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+.reasoning-text {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.6;
+  margin-bottom: 0.85rem;
+  font-style: italic;
+}
+
+/* Score grid */
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+.score-cell {
+  background: var(--surface2);
+  border-radius: 7px;
+  padding: 8px 10px;
+}
+.score-cell-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.score-cell-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+.score-bar { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; }
+.score-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease 0.2s; }
+
+/* Tags */
+.tag-section { margin-bottom: 0.6rem; }
+.tag-section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  margin: 2px 3px 2px 0;
+}
+.tag-warn { background: rgba(251,191,36,0.1); color: #fcd34d; border: 1px solid rgba(251,191,36,0.15); }
+.tag-fail { background: rgba(248,113,113,0.1); color: #fca5a5; border: 1px solid rgba(248,113,113,0.15); }
+
+/* Critic footer */
+.critic-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+.critic-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.critic-bar { flex: 1; max-width: 120px; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; }
+.critic-fill { height: 100%; border-radius: 2px; background: var(--red); }
+.critic-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--red);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <p class="header-eyebrow">API · v1.0</p>
+    <h1 class="header-title">Adversarial <span>Framing</span><br>Engine</h1>
+    <p class="header-sub">Extracts consensus, attacks it through 5 adversarial lenses, scores validity, runs a critic pass — then ranks defensible non-obvious approaches.</p>
+  </div>
+
+  <div class="input-card">
+    <p class="input-label">Problem statement</p>
+    <textarea id="inp" placeholder="What problem do you want non-obvious approaches for?&#10;&#10;e.g. How do I retain users in my SaaS app?" rows="4"></textarea>
+    <div class="input-footer">
+      <span class="err-msg" id="errMsg"></span>
+      <button class="run-btn" id="runBtn" onclick="runAnalysis()">run analysis →</button>
+    </div>
+  </div>
+
+  <div class="pipeline" id="pipeline">
+    <div class="pipe-steps">
+      <div class="pipe-step" id="p1"><span class="step-num">01</span>consensus</div>
+      <div class="pipe-step" id="p2"><span class="step-num">02</span>lenses</div>
+      <div class="pipe-step" id="p3"><span class="step-num">03</span>validity</div>
+      <div class="pipe-step" id="p4"><span class="step-num">04</span>critic</div>
+      <div class="pipe-step" id="p5"><span class="step-num">05</span>ranked</div>
+    </div>
+    <div class="pipe-log" id="pipeLog"></div>
+  </div>
+
+  <div id="results"></div>
+
+</div>
+
+<script>
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStep(n, state) {
+  document.getElementById('p'+n).className = 'pipe-step ' + state;
+}
+
+function log(msg, cls) {
+  const el = document.getElementById('pipeLog');
+  el.innerHTML += `<div class="log-entry ${cls||''}">${esc(msg)}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function composite(s, c) {
+  const n  = s.novelty||0.5, f = s.feasibility||0.5;
+  const r  = s.risk||0.5,    ei = s.expected_impact||0.5;
+  const cd = c.confidence_drop||0.2;
+  return ((n*0.25 + f*0.35 + ei*0.35) * (1 - r*0.15)) * (1 - cd*0.3);
+}
+
+function bar(pct, color) {
+  return `<div class="score-bar"><div class="score-fill" style="width:${Math.round(pct)}%;background:${color};"></div></div>`;
+}
+
+function pressureClass(label) {
+  const l = (label||'moderate').toLowerCase();
+  if (l === 'weak') return 'weak';
+  if (l === 'overwhelming' || l === 'strong') return 'strong';
+  return 'moderate';
+}
+
+function renderConsensus(c1) {
+  const pct = Math.round((c1.pressure_score||0.7)*100);
+  const label = (c1.pressure_label||'moderate').toLowerCase();
+  const note = pct > 70
+    ? 'High consensus pressure — divergent approaches carry more value here.'
+    : 'Weak consensus — the baseline is already unstable. Divergent approaches must clearly justify their departure.';
+  return `<div class="consensus-block">
+    <p class="section-label">consensus baseline</p>
+    <div class="consensus-header">
+      <p class="consensus-text">${esc(c1.consensus)}</p>
+      <span class="pressure-badge ${pressureClass(label)}">pressure ${pct}% · ${esc(label)}</span>
+    </div>
+    <p class="consensus-note">${note}</p>
+  </div>`;
+}
+
+const LENS_COLORS = {
+  novelty:         { val: '#60a5fa', bar: '#60a5fa' },
+  feasibility:     { val: '#4ade80', bar: '#4ade80' },
+  risk:            { val: null,      bar: null       },
+  expected_impact: { val: '#2dd4bf', bar: '#2dd4bf' },
+};
+
+function renderCard(item, isTop, delay) {
+  const s   = item.scores   || {};
+  const c   = item.critique || {};
+  const cp  = item.composite != null ? item.composite : composite(s, c);
+  const cpPct = Math.round(cp * 100);
+
+  const lensLabel = (item.lens||'').replace(/_/g,' ');
+  const nv  = Math.round((s.novelty||0)*100);
+  const fv  = Math.round((s.feasibility||0)*100);
+  const rv  = Math.round((s.risk||0)*100);
+  const iv  = Math.round((s.expected_impact||0)*100);
+  const drop = Math.round((c.confidence_drop||0)*100);
+  const riskColor = rv > 65 ? '#f87171' : '#fbbf24';
+
+  const scoreColor = cpPct >= 70 ? '#4ade80' : cpPct >= 50 ? '#fbbf24' : '#f87171';
+
+  const wk = (c.weaknesses||[]);
+  const fm = (c.failure_modes||[]);
+
+  return `<div class="result-card ${isTop?'top':''}" style="animation-delay:${delay}ms">
+    <div class="card-top-row">
+      <div class="card-left">
+        ${isTop ? '<span class="top-badge">top ranked</span>' : ''}
+        <span class="lens-badge">${esc(lensLabel)}</span>
+      </div>
+      <div class="composite-score">
+        <span class="cs-label">composite</span>
+        <span class="cs-num" style="color:${scoreColor};">${cpPct}</span>
+      </div>
+    </div>
+
+    <p class="approach-text">${esc(item.approach)}</p>
+    <p class="reasoning-text">${esc(item.reasoning)}</p>
+
+    <div class="score-grid">
+      <div class="score-cell">
+        <div class="score-cell-label">novelty</div>
+        <div class="score-cell-val" style="color:#60a5fa;">${nv}</div>
+        ${bar(nv,'#60a5fa')}
+      </div>
+      <div class="score-cell">
+        <div class="score-cell-label">feasibility</div>
+        <div class="score-cell-val" style="color:#4ade80;">${fv}</div>
+        ${bar(fv,'#4ade80')}
+      </div>
+      <div class="score-cell">
+        <div class="score-cell-label">risk</div>
+        <div class="score-cell-val" style="color:${riskColor};">${rv}</div>
+        ${bar(rv, riskColor)}
+      </div>
+      <div class="score-cell">
+        <div class="score-cell-label">impact</div>
+        <div class="score-cell-val" style="color:#2dd4bf;">${iv}</div>
+        ${bar(iv,'#2dd4bf')}
+      </div>
+    </div>
+
+    ${wk.length ? `<div class="tag-section">
+      <p class="tag-section-label">weaknesses</p>
+      ${wk.map(w=>`<span class="tag tag-warn">${esc(w)}</span>`).join('')}
+    </div>` : ''}
+
+    ${fm.length ? `<div class="tag-section">
+      <p class="tag-section-label">failure modes</p>
+      ${fm.map(f=>`<span class="tag tag-fail">${esc(f)}</span>`).join('')}
+    </div>` : ''}
+
+    <div class="critic-row">
+      <span class="critic-label">critic confidence drop</span>
+      <div class="critic-bar"><div class="critic-fill" style="width:${drop}%;"></div></div>
+      <span class="critic-val">−${drop}%</span>
+    </div>
+  </div>`;
+}
+
+async function runAnalysis() {
+  const problem = document.getElementById('inp').value.trim();
+  if (!problem) { document.getElementById('errMsg').textContent = 'Enter a problem first.'; return; }
+  document.getElementById('errMsg').textContent = '';
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'running...';
+
+  const pipe = document.getElementById('pipeline');
+  pipe.classList.add('visible');
+  document.getElementById('pipeLog').innerHTML = '';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('results').classList.remove('visible');
+  ['p1','p2','p3','p4','p5'].forEach(id => document.getElementById(id).className = 'pipe-step');
+
+  try {
+    const resp = await fetch('/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ problem })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || 'Server error');
+    }
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    const STEP_LABELS = ['','extracting consensus baseline...','generating adversarial lenses...','scoring validity & feasibility...','running adversarial critic pass...','ranking and merging results...'];
+    const STEP_DONE   = ['','consensus extracted','lenses generated','validity scored','critic pass complete','ranked'];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (ev.step && ev.status === 'loading') {
+          setStep(ev.step, 'loading');
+          log('→ ' + STEP_LABELS[ev.step], 'active');
+        }
+
+        if (ev.step && ev.status === 'done') {
+          setStep(ev.step, 'done');
+          log('✓ ' + STEP_DONE[ev.step], 'ok');
+        }
+
+        if (ev.type === 'complete') {
+          const { consensus, ranked } = ev.data;
+          let html = renderConsensus(consensus);
+          html += `<p class="results-label">5 approaches ranked by composite score &nbsp;·&nbsp; novelty 25% · feasibility 35% · impact 35% · risk −15% · critic correction</p>`;
+          ranked.forEach((item, i) => {
+            html += renderCard(item, i === 0, i * 80);
+          });
+          const out = document.getElementById('results');
+          out.innerHTML = html;
+          out.classList.add('visible');
+          out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        if (ev.type === 'error') {
+          throw new Error(ev.message);
+        }
+      }
+    }
+
+  } catch (e) {
+    document.getElementById('errMsg').textContent = 'Error: ' + e.message;
+    ['p1','p2','p3','p4','p5'].forEach(id => {
+      if (document.getElementById(id).className.includes('loading'))
+        document.getElementById(id).className = 'pipe-step error';
+    });
+    log('✗ ' + e.message, 'fail');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'run analysis →';
+}
+
+document.getElementById('inp').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runAnalysis();
+});
+</script>
+</body>
+</html>
