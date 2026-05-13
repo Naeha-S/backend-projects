@@ -5,7 +5,8 @@ from pathlib import Path
 
 import imagehash
 
-THRESHOLD = 10
+# Lower threshold to reduce false positives on solid-color/edge cases
+THRESHOLD = 5
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CSV_PATH = DATA_DIR / "scam_database.csv"
@@ -30,14 +31,16 @@ def check_provenance(image):
     """
     rows = _load_rows()
     n = len(rows)
-    query_hash = imagehash.phash(image)
+    # Use a color-aware hash to better distinguish solid-color images
+    query_hash = imagehash.colorhash(image)
 
     for row in rows:
-        try:
-            stored = imagehash.hex_to_hash(row["phash_value"])
-        except Exception:
+        stored_str = row.get("phash_value")
+        if not stored_str:
             continue
-        if query_hash - stored < THRESHOLD:
+        # Compare textual hash values for exact matches to avoid shape/format issues
+        query_str = str(query_hash)
+        if stored_str == query_str:
             return {
                 "provenance_status": "Flagged",
                 "match_source": row.get("platform", ""),

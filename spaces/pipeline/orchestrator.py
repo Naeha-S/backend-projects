@@ -168,7 +168,13 @@ def format_report(result):
         lines.append(f"_{l4['note']}_")
     lines.append("**Layer 5 — Recommended actions:**")
     for a in l5.get("actions", []):
-        lines.append(f"- {a}")
+        if isinstance(a, dict):
+            lines.append(f"- {a.get('text')}")
+            ev = a.get('evidence')
+            if ev:
+                lines.append(f"  (evidence: {ev})")
+        else:
+            lines.append(f"- {a}")
     lines.append(f"**Severity:** {l5.get('severity', 'info')}")
     for w in result.get("warnings", []):
         lines.append(f"**Warning:** {w}")

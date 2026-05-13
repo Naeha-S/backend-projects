@@ -94,6 +94,11 @@ body::before {
   padding: 1.25rem;
   margin-bottom: 1.5rem;
 }
+/* Domain pills */
+.domain-row { display:flex; gap:8px; margin-bottom:10px; }
+.domain-pill { font-family: 'DM Mono', monospace; font-size:12px; padding:6px 10px; border-radius:999px; background:var(--surface2); color:var(--text2); border:1px solid var(--border); cursor:pointer; }
+.domain-pill.active { background: var(--blue); color: #031024; border-color: rgba(96,165,250,0.2); }
+
 .input-label {
   font-family: 'DM Mono', monospace;
   font-size: 10px;
@@ -404,12 +409,25 @@ button.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 <div class="wrap">
   <header class="header">
     <div class="header-eyebrow">ADVERSARIAL FRAMING ENGINE</div>
-    <h1 class="header-title">Adversarial Framing <span>Engine</span></h1>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <h1 class="header-title">Adversarial Framing <span>Engine</span></h1>
+      <div>
+        <button id="getKeyBtn" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;cursor:pointer;font-family:DM Mono;font-size:12px;">Get API key</button>
+      </div>
+    </div>
     <p class="header-sub">Extracts consensus, generates adversarial lenses, scores validity, runs a critic pass, and ranks defensible non-obvious approaches.</p>
   </header>
 
   <div class="input-card">
     <div class="input-label">Describe a problem</div>
+    <div class="domain-row" id="domainRow">
+      <div class="domain-pill active" data-domain="general">General</div>
+      <div class="domain-pill" data-domain="startup">Startup</div>
+      <div class="domain-pill" data-domain="product">Product</div>
+      <div class="domain-pill" data-domain="engineering">Engineering</div>
+      <div class="domain-pill" data-domain="finance">Finance</div>
+      <div class="domain-pill" data-domain="research">Research</div>
+    </div>
     <textarea id="inp" placeholder="What problem do you want non-obvious approaches for?"></textarea>
     <div class="input-footer">
       <div class="err-msg" id="err"></div>
@@ -435,6 +453,41 @@ button.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function sp(n,c){document.getElementById("p"+n).className="pipe-step "+c;}
 
+// Domain selector
+let selectedDomain = 'general';
+function setDomain(d){
+  selectedDomain = d;
+  document.querySelectorAll('.domain-pill').forEach(el=>{
+    el.classList.toggle('active', el.getAttribute('data-domain')===d);
+  });
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelectorAll('.domain-pill').forEach(el=>{
+    el.addEventListener('click', ()=> setDomain(el.getAttribute('data-domain')));
+  });
+  setDomain(selectedDomain);
+  // API key button handlers
+  const getKeyBtn = document.getElementById('getKeyBtn');
+  const keyModal = document.getElementById('keyModal');
+  const apiKeyField = document.getElementById('apiKeyField');
+  const copyKeyBtn = document.getElementById('copyKeyBtn');
+  const closeKeyBtn = document.getElementById('closeKeyBtn');
+  getKeyBtn.addEventListener('click', async ()=>{
+    try{
+      getKeyBtn.disabled = true; getKeyBtn.textContent = 'Generating...';
+      const r = await fetch('/v1/keys', {method:'POST'});
+      const j = await r.json();
+      apiKeyField.value = j.key || '';
+      keyModal.style.display = 'flex';
+    }catch(e){ alert('Error generating key: '+e.message) }
+    getKeyBtn.disabled = false; getKeyBtn.textContent = 'Get API key';
+  });
+  copyKeyBtn.addEventListener('click', ()=>{
+    navigator.clipboard.writeText(apiKeyField.value).then(()=>{copyKeyBtn.textContent='Copied';setTimeout(()=>copyKeyBtn.textContent='Copy',1200)});
+  });
+  closeKeyBtn.addEventListener('click', ()=>{ keyModal.style.display='none'; apiKeyField.value=''; });
+});
+
 async function run(){
   const problem = document.getElementById('inp').value.trim();
   if(!problem){document.getElementById('err').textContent='Enter a problem first.';return}
@@ -447,17 +500,20 @@ async function run(){
   try{
     sp(1,'loading');
     // Start SSE from backend
-    const resp = await fetch('/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({problem})});
+    const resp = await fetch('/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({problem, domain: selectedDomain})});
+    if(!resp.ok){
+      let msg = `Server error ${resp.status}`;
+      try{ const j = await resp.json(); msg = j.detail || j.error || msg; }catch(_){}
+      throw new Error(msg);
+    }
     if(!resp.body) throw new Error('No response body');
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
     const out = document.getElementById('out');
 
-    while(true){
-      const {done, value} = await reader.read();
-      if(done) break;
-      buf += decoder.decode(value, {stream:true});
+    function processChunk(text){
+      buf += text;
       const parts = buf.split('\n\n');
       buf = parts.pop();
       for(const part of parts){
@@ -466,8 +522,8 @@ async function run(){
         let payload;
         try{ payload = JSON.parse(line); }catch(e){ continue; }
         if(payload.step){
-          ['p1','p2','p3','p4','p5'].forEach(id=>document.getElementById(id).className='pipe-step');
-          document.getElementById('p'+payload.step).className = payload.status === 'loading' ? 'pipe-step loading' : 'pipe-step done';
+          const stepEl = document.getElementById('p'+payload.step);
+          if(stepEl) stepEl.className = payload.status === 'loading' ? 'pipe-step loading' : 'pipe-step done';
         }
         if(payload.type === 'complete'){
           const res = payload.data;
@@ -475,18 +531,46 @@ async function run(){
             <div style="font-size:12px;color:#9CA3AF;margin-bottom:6px;">Consensus</div>
             <div style="background:#0b1220;border-radius:8px;padding:12px;">${esc(res.consensus.consensus)}</div>
           </div>`;
-          res.ranked.forEach(r=>{html += `<div style="margin-bottom:12px;background:#0b0b0b;padding:12px;border-radius:8px;">${esc(r.approach)}<div style="font-size:12px;color:#9CA3AF;margin-top:6px;">${esc(r.reasoning||'')}</div></div>`});
+          const domainBadge = (d)=>`<span style="display:inline-block;background:var(--blue);color:#031024;padding:3px 8px;border-radius:999px;font-size:12px;margin-left:8px;">${esc(d||'general')}</span>`;
+          res.ranked.forEach(r=>{html += `<div style="margin-bottom:12px;background:#0b0b0b;padding:12px;border-radius:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div style="font-size:14px;font-weight:600;">${esc(r.approach)}</div>
+                ${domainBadge(res.domain)}
+              </div>
+              <div style="font-size:12px;color:#9CA3AF;margin-top:6px;">${esc(r.reasoning||'')}</div>
+            </div>`});
           out.innerHTML = html;
         }
         if(payload.type === 'error'){
-          document.getElementById('err').textContent = payload.message;
+          document.getElementById('err').textContent = '⚠ ' + payload.message;
         }
       }
     }
 
-  }catch(e){ document.getElementById('err').textContent = 'Error: '+e.message }
+    while(true){
+      const {done, value} = await reader.read();
+      if(done){ processChunk(decoder.decode()); break; }
+      processChunk(decoder.decode(value, {stream:true}));
+    }
+
+  }catch(e){ document.getElementById('err').textContent = '⚠ ' + e.message; }
   btn.disabled=false; btn.textContent='Run analysis ↗';
 }
 </script>
+
+<!-- API Key Modal -->
+<div id="keyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface);padding:18px;border-radius:10px;max-width:720px;width:100%;color:var(--text);">
+    <h3 style="margin:0 0 8px;font-family:Syne">Your API key</h3>
+    <p style="margin:0 0 12px;color:var(--text2)">Save this now — it will only be shown once.</p>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+      <input id="apiKeyField" readonly style="flex:1;background:#0b1220;border:1px solid var(--border);padding:8px;border-radius:6px;color:var(--text);font-family:monospace;">
+      <button id="copyKeyBtn" style="background:var(--blue);color:#031024;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;">Copy</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button id="closeKeyBtn" style="background:transparent;border:1px solid var(--border);padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text)">Close</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

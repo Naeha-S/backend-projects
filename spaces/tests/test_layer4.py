@@ -15,7 +15,7 @@ def make_img(color):
 def test_layer4_flagged_and_clean(tmp_path, monkeypatch):
     # Build a tiny temp CSV with one known pHash.
     flagged = make_img((255, 0, 0))
-    flagged_hash = str(imagehash.phash(flagged))
+    flagged_hash = str(imagehash.colorhash(flagged))
 
     csv_path = tmp_path / "scam_database.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as f:

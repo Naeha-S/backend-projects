@@ -50,18 +50,8 @@
 </div>
 
 <script>
-const API="https://api.anthropic.com/v1/messages";
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-function sp(n,c){document.getElementById("p"+n).className="ps "+c;}
-
-async function llm(sys,usr){
-  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:sys,messages:[{role:"user",content:usr}]})});
-  const d=await r.json();
-  const txt=(d.content||[]).map(b=>b.text||"").join("");
-  const m=txt.match(/\{[\s\S]*\}/);
-  if(!m)throw new Error("No JSON returned");
-  return JSON.parse(m[0]);
-}
+function sp(n,c){const el=document.getElementById("p"+n); if(el) el.className="ps "+c;}
 
 function composite(s,c){
   const n=s.novelty||0.5,f=s.feasibility||0.5,ri=s.risk||0.5,ei=s.expected_impact||0.5,cd=c.confidence_drop||0.2;
@@ -74,7 +64,7 @@ function renderConsensus(c1){
   const pct=Math.round((c1.pressure_score||0.7)*100);
   const label=c1.pressure_label||"moderate";
   const col=pct>75?"var(--color-text-danger)":pct>50?"var(--color-text-warning)":"var(--color-text-success)";
-  const note=pct>70?"High pressure — divergent approaches carry more value here.":"Weak consensus — the baseline is unstable. Novel approaches must justify their departure.";
+  const note=pct>70?"High pressure — divergent approaches carry more value here.":"Weak consensus — the baseline is unstable.";
   return `<div style="background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:1.5rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <span style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);">CONSENSUS BASELINE</span>
@@ -136,51 +126,45 @@ async function run(){
   document.getElementById("out").innerHTML="";
   ["p1","p2","p3","p4","p5"].forEach(id=>document.getElementById(id).className="ps");
 
-  try{
-    sp(1,"go");
-    const s1=await llm(
-      `You extract the consensus default answer most people or AI systems give to a problem, and score how strongly converged that consensus is. Respond ONLY with valid JSON, no markdown: {"consensus":"the obvious default answer","pressure_score":0.0,"pressure_label":"weak or moderate or strong or overwhelming"}`,
-      problem
-    );
-    sp(1,"ok");
+  try {
+    const response = await fetch("http://127.0.0.2:8000/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problem: problem, domain: "general" })
+    });
 
-    sp(2,"go");
-    const atxt=s1.approaches?JSON.stringify(s1.approaches):"";
-    const s2=await llm(
-      `You generate non-obvious approaches to problems by attacking through 5 adversarial lenses. Work AGAINST the consensus. Lenses: first_principles (strip all assumptions, rebuild from zero), inversion (solve the opposite problem), analogical (find solved version in unrelated domain, apply it), constraint_removal (biggest assumed constraint doesn't exist — what's possible now?), second_order (obvious solution creates a new problem — solve that instead). Make each approach specific and actionable. Respond ONLY with valid JSON, no markdown: {"approaches":[{"lens":"...","approach":"specific actionable approach","reasoning":"why this diverges from consensus"}]}`,
-      `Problem: ${problem}\nConsensus to work against: ${s1.consensus}\nGenerate one genuinely non-obvious approach per lens.`
-    );
-    sp(2,"ok");
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-    sp(3,"go");
-    const apStr=s2.approaches.map((a,i)=>`${i+1}. [${a.lens}] ${a.approach}`).join("\n");
-    const s3=await llm(
-      `You score approaches on 4 dimensions as 0.0-1.0 floats: novelty (divergence from consensus), feasibility (realistic chance of working), risk (implementation/failure risk, higher = riskier), expected_impact (upside if it works). Be honest, not generous. Respond ONLY with valid JSON, no markdown: {"scores":[{"lens":"...","novelty":0.0,"feasibility":0.0,"risk":0.0,"expected_impact":0.0}]}`,
-      `Problem: ${problem}\nConsensus: ${s1.consensus}\nApproaches:\n${apStr}`
-    );
-    sp(3,"ok");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-    sp(4,"go");
-    const s4=await llm(
-      `You are an adversarial critic. Find specific flawed assumptions, weaknesses, and realistic failure modes for each approach. Be precise and honest. Respond ONLY with valid JSON, no markdown: {"critiques":[{"lens":"...","weaknesses":["specific weakness 1","specific weakness 2"],"failure_modes":["how it fails in practice"],"confidence_drop":0.0}]}`,
-      `Problem: ${problem}\nApproaches to break:\n${apStr}`
-    );
-    sp(4,"ok");
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
 
-    sp(5,"go");
-    const merged=s2.approaches.map(a=>{
-      const sc=(s3.scores||[]).find(x=>x.lens===a.lens)||{novelty:.5,feasibility:.5,risk:.5,expected_impact:.5};
-      const cr=(s4.critiques||[]).find(x=>x.lens===a.lens)||{weaknesses:[],failure_modes:[],confidence_drop:.2};
-      return{...a,s:sc,c:cr,score:composite(sc,cr)};
-    }).sort((a,b)=>b.score-a.score);
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
 
-    let html=renderConsensus(s1);
-    html+=`<p style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:12px;">5 approaches ranked by composite score (novelty 25% · feasibility 35% · impact 35% · risk −15%) × critic correction</p>`;
-    merged.forEach((m,i)=>{html+=renderCard(m,m.s,m.c,i===0);});
-    document.getElementById("out").innerHTML=html;
-    sp(5,"ok");
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = JSON.parse(line.slice(6));
 
-  }catch(e){
+        if (data.type === "ping") continue;
+        if (data.type === "error") throw new Error(data.message);
+
+        if (data.step) {
+          const status = data.status === "loading" ? "go" : "ok";
+          sp(data.step, status);
+          
+          if (data.step === 5 && data.status === "done") {
+             renderFinal(data.data);
+          }
+        }
+      }
+    }
+  } catch(e) {
     document.getElementById("err").textContent="Error: "+e.message;
     ["p1","p2","p3","p4","p5"].forEach(id=>{
       if(document.getElementById(id).className.includes("go"))document.getElementById(id).className="ps bad";
@@ -189,4 +173,16 @@ async function run(){
 
   btn.disabled=false;btn.textContent="Run analysis ↗";
 }
+
+function renderFinal(finalData) {
+  let html = renderConsensus(finalData.consensus_data);
+  html += `<p style="font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);margin-bottom:12px;">5 approaches ranked by composite score</p>`;
+  
+  finalData.results.forEach((m, i) => {
+    html += renderCard(m, m.scores, m.critique, i === 0);
+  });
+  
+  document.getElementById("out").innerHTML = html;
+}
 </script>
+

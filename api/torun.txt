@@ -1,0 +1,19 @@
+To run the Adversarial Framing Engine locally with Ollama, follow these steps:
+
+1. Install Ollama:
+   Download and install Ollama from https://ollama.com/download
+
+2. Start Ollama and download the required model:
+   Open your terminal and run:
+   ollama run qwen2.5-coder:7b
+
+   (This will download the 'qwen2.5-coder:7b' model if you don't have it, and start the Ollama service on http://localhost:11434)
+
+3. Start the FastAPI backend:
+   Open a new terminal in the project directory (c:\Users\NAEHA\Desktop\projects\api) and run:
+   .venv\Scripts\python -m uvicorn app:app --host 127.0.0.2 --port 8000
+
+4. Access the web interface:
+   Open your web browser and go to http://127.0.0.2:8000
+
+Note: The `.env` file is already configured to point to your local Ollama instance (`OLLAMA_URL=http://localhost:11434` and `OLLAMA_MODEL=qwen2.5-coder:7b`).
