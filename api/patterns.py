@@ -186,6 +186,17 @@ def _count_saved_analyses() -> int:
     return len(glob.glob(os.path.join(ANALYSES_DIR, "*", "*.json")))
 
 
+def _load_source_records() -> list[dict]:
+    saved_total = _count_saved_analyses()
+    recorded = list(_iter_pattern_records() or [])
+    if recorded and len(recorded) >= saved_total:
+        return recorded
+    saved_records = list(_iter_saved_analysis_records())
+    if saved_records:
+        return saved_records
+    return recorded
+
+
 def _compute_pattern_from_records(records: list[dict], domain: str) -> dict:
     if not records:
         return _blank_pattern(domain)
@@ -254,9 +265,7 @@ def _cache_is_fresh(cache: dict | None, current_total: int) -> bool:
 
 
 def _rebuild_cache():
-    records = list(_iter_saved_analysis_records())
-    if not records:
-        records = list(_iter_pattern_records() or [])
+    records = _load_source_records()
     global_pattern = _compute_pattern_from_records(records, "global")
     by_domain = {}
     for domain in DOMAINS:

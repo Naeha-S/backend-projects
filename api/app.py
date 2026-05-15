@@ -1,6 +1,7 @@
 # Adversarial Framing Engine - Hybrid Pipeline (Hugging Face + Ollama)
-import os, json, re, glob, asyncio, secrets, httpx, openai, anthropic
+import os, json, re, glob, asyncio, secrets, uuid, time, logging, httpx, openai, anthropic
 import json_repair
+from logging.handlers import RotatingFileHandler
 # Load .env file so HF_TOKEN etc. are available without manual env setup
 try:
     from dotenv import load_dotenv
@@ -9,23 +10,79 @@ except ImportError:
     pass  # python-dotenv not installed; fall back to system env vars
 
 from typing import Any
-from functools import partial
-from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import auth
 import patterns
 from datetime import datetime
 
-app = FastAPI(title="Adversarial Framing Engine")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
 BASE_DIR = os.path.dirname(__file__)
-STATIC_DIR = os.path.join(BASE_DIR, "static")
 DATA_DIR = os.path.join(BASE_DIR, "data")
+STATIC_DIR = os.path.join(DATA_DIR, "static")
 ANALYSES_DIR = os.path.join(DATA_DIR, "analyses")
+LOGS_DIR = os.path.join(DATA_DIR, "logs")
+REQUEST_LOG_PATH = os.path.join(LOGS_DIR, "requests.log")
+
+DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:8000"]
+
+
+def parse_allowed_origins() -> list[str]:
+    raw = (os.environ.get("ALLOWED_ORIGINS") or "").strip()
+    if not raw:
+        return DEFAULT_ALLOWED_ORIGINS
+    origins = [item.strip() for item in raw.split(",") if item.strip()]
+    for origin in origins:
+        if not re.match(r"^https?://", origin):
+            raise RuntimeError(f"ALLOWED_ORIGINS contains invalid origin '{origin}'. Include http:// or https://.")
+    return origins or DEFAULT_ALLOWED_ORIGINS
+
+
+ALLOWED_ORIGINS = parse_allowed_origins()
+
+
+app = FastAPI(
+    title="Adversarial Framing Engine API",
+    description=(
+        "Production API for adversarial framing analysis. Extracts consensus, generates "
+        "contrarian lenses, attacks assumptions, scores validity, runs a critic pass, ranks adversarial claims, and "
+        "surfaces pattern-library insights across saved analyses."
+    ),
+    version="1.0.0",
+    contact={
+        "name": "Adversarial Framing Engine",
+        "url": "https://example.com",
+        "email": "support@example.com",
+    },
+    license_info={
+        "name": "Proprietary",
+        "url": "https://example.com/license",
+    },
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
+    expose_headers=["X-Request-ID", "X-Calls-Total", "X-RateLimit-Remaining"],
+)
+
+os.makedirs(LOGS_DIR, exist_ok=True)
+request_logger = logging.getLogger("afe.requests")
+if not request_logger.handlers:
+    request_logger.setLevel(logging.INFO)
+    request_handler = RotatingFileHandler(
+        REQUEST_LOG_PATH,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    request_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    request_logger.addHandler(request_handler)
+    request_logger.propagate = False
 
 
 # Domain intelligence layer: per-domain lens framings
@@ -74,6 +131,328 @@ DOMAIN_CONFIGS = {
     },
 }
 
+# Override legacy solution-oriented lens definitions with adversarial attack framings.
+DOMAIN_CONFIGS = {
+    "general": {
+        "first_principles": "identify the premise being treated as natural or inevitable, then attack whether it is actually true under real constraints.",
+        "inversion": "assume the stated goal is a proxy, cover story, or misdiagnosis; ask what objective would explain the opposite behavior.",
+        "analogical": "map the situation to an unrelated system that failed, decayed, or was captured, and use that analogy to expose hidden structure.",
+        "constraint_removal": "remove the socially protected assumption (trust, legitimacy, coordination, patience, compliance) and inspect what immediately breaks.",
+        "second_order": "trace what happens if the default answer spreads everywhere; surface the feedback loops, contradictions, and fragilities it creates.",
+    },
+    "startup": {
+        "first_principles": "separate the claimed product value from the actual economic mechanism; test whether the startup is solving the real bottleneck or flattering itself.",
+        "inversion": "assume the company is accidentally optimized to look promising rather than become durable; identify what behavior that would predict.",
+        "analogical": "compare the startup to speculative bubbles, agency businesses, or distribution arbitrage disguised as product moats; use the analogy to expose weakness.",
+        "constraint_removal": "remove investor patience, cheap distribution, and narrative goodwill; inspect whether the model still holds together.",
+        "second_order": "if the current tactic works and everyone copies it, show where margins compress, incentives rot, or retention becomes structurally worse.",
+    },
+    "product": {
+        "first_principles": "attack the assumed user need, metric, or workflow; determine whether the product is optimizing a proxy instead of the real job.",
+        "inversion": "assume the product is quietly training harmful user behavior or masking a deeper workflow failure; surface that contradiction.",
+        "analogical": "map the product to casinos, bureaucracy, addiction loops, or safety systems when useful; use the analogy to reveal the hidden operating logic.",
+        "constraint_removal": "remove user trust, patience, and onboarding effort as assumptions; what part of the experience stops making sense immediately?",
+        "second_order": "if the product decision scales across the user base, show the downstream distortions, abuse patterns, or ecosystem damage it invites.",
+    },
+    "engineering": {
+        "first_principles": "identify the invariant the system pretends to protect and test whether the architecture actually honors it under stress.",
+        "inversion": "assume the current design incentives are selecting for hidden outage modes, silent corruption, or operational theater; expose where.",
+        "analogical": "compare the system to domains where failure is catastrophic, or to brittle infrastructures that looked efficient until they cascaded.",
+        "constraint_removal": "remove heroic operators, tribal knowledge, and perfect observability as assumptions; what breaks first?",
+        "second_order": "if the optimization is applied system-wide, surface the fragility, coupling, or attack surface that compounds over time.",
+    },
+    "finance": {
+        "first_principles": "strip away narrative and ask which cash flows, counterparties, and incentive asymmetries actually determine the outcome.",
+        "inversion": "assume the trade is attractive mainly because someone else needs you to hold the risk; inspect that adverse-selection story.",
+        "analogical": "map the setup to past crowded trades, insurance mispricing, or reflexive bubbles to reveal where the structure rhymes.",
+        "constraint_removal": "remove liquidity, refinancing access, and mark-to-model comfort as assumptions; what becomes obviously fragile?",
+        "second_order": "if the strategy is widely copied, trace the reflexive loop, correlation shock, or balance-sheet stress it creates.",
+    },
+    "research": {
+        "first_principles": "identify the hidden assumption in the hypothesis, metric, or experimental design and attack whether it is warranted.",
+        "inversion": "assume the result is an artifact, proxy mistake, or selection effect; ask what evidence would make that the better explanation.",
+        "analogical": "compare the research pattern to historical replication failures or measurement traps in other fields to expose structural weakness.",
+        "constraint_removal": "remove trust in the benchmark, instrumentation, or labeling process as an assumption; what confidence evaporates?",
+        "second_order": "if the finding is accepted and operationalized, show the distortions, blind spots, or ethical contradictions that follow.",
+    },
+}
+
+
+class ErrorDetail(BaseModel):
+    code: str = Field(..., examples=["internal_error"])
+    message: str = Field(..., examples=["An unexpected error occurred."])
+    request_id: str = Field(..., examples=["4d6f6f7b-2c60-4ac4-b42e-0cd0289ec0e3"])
+
+
+class ErrorEnvelope(BaseModel):
+    error: ErrorDetail
+
+
+class AnalyzeRequest(BaseModel):
+    problem: str = Field(
+        ...,
+        examples=["Should SaaS companies automate customer support with AI or redesign support from first principles?"],
+    )
+    domain: str = Field(
+        default="general",
+        examples=["general"],
+    )
+    num_results: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        examples=[5],
+    )
+    verbosity: str = Field(
+        default="balanced",
+        examples=["compact"],
+    )
+    pressure_mode: str = Field(
+        default="institutional_critique",
+        examples=["red_team"],
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "problem": "How should a startup reduce churn without defaulting to discounting?",
+                    "domain": "startup",
+                    "num_results": 5,
+                    "verbosity": "balanced",
+                    "pressure_mode": "institutional_critique",
+                }
+            ]
+        }
+    }
+
+
+class ApiKeyResponse(BaseModel):
+    key: str
+
+
+class UsageResponse(BaseModel):
+    tier: str | None = None
+    calls_today: int | None = None
+    calls_total: int | None = None
+    calls_remaining: int | None = None
+    limit_today: int | None = None
+    member_since: str | None = None
+
+
+class AnalysisSummaryResponse(BaseModel):
+    id: str | None = None
+    problem: str | None = None
+    domain: str | None = None
+    top_approach: str | None = None
+    composite_score: float | None = None
+    created_at: str | None = None
+
+
+class AnalysesPageResponse(BaseModel):
+    items: list[AnalysisSummaryResponse]
+    page: int
+    per_page: int
+    total: int
+    has_more: bool
+
+
+class ConsensusResponse(BaseModel):
+    consensus: str = ""
+    pressure_score: float | None = None
+    pressure_label: str | None = None
+
+
+class LensScoresResponse(BaseModel):
+    novelty: float | None = None
+    feasibility: float | None = None
+    risk: float | None = None
+    expected_impact: float | None = None
+
+
+class CritiqueResponse(BaseModel):
+    weaknesses: list[str] = Field(default_factory=list)
+    failure_modes: list[str] = Field(default_factory=list)
+    confidence_drop: float | None = None
+
+
+class RankedApproachResponse(BaseModel):
+    lens: str | None = None
+    approach: str | None = None
+    reasoning: str | None = None
+    scores: LensScoresResponse | None = None
+    critique: CritiqueResponse | None = None
+    composite: float | None = None
+
+
+class AnalysisRecordResponse(BaseModel):
+    id: str | None = None
+    analysis_id: str | None = None
+    problem: str | None = None
+    domain: str | None = None
+    domain_config: dict[str, Any] = Field(default_factory=dict)
+    consensus: ConsensusResponse | dict[str, Any] = Field(default_factory=dict)
+    ranked: list[RankedApproachResponse] = Field(default_factory=list)
+    settings: dict[str, Any] = Field(default_factory=dict)
+    created_at: str | None = None
+
+
+class PatternResponse(BaseModel):
+    domain: str
+    top_lens: str | None = None
+    lens_win_rates: dict[str, float] = Field(default_factory=dict)
+    avg_scores: dict[str, float] = Field(default_factory=dict)
+    avg_composite_score: float = 0.0
+    top_problem_themes: list[str] = Field(default_factory=list)
+    total_analyses: int = 0
+    last_updated: str
+
+
+class AllPatternsResponse(BaseModel):
+    domains: dict[str, PatternResponse]
+    global_: PatternResponse | None = Field(default=None, alias="global")
+    total_analyses: int
+    last_updated: str
+
+    model_config = {"populate_by_name": True}
+
+
+COMMON_ERROR_RESPONSES = {
+    400: {"model": ErrorEnvelope, "description": "Bad request."},
+    401: {"model": ErrorEnvelope, "description": "Authentication failed or API key is missing."},
+    404: {"model": ErrorEnvelope, "description": "Requested resource was not found."},
+    429: {"model": ErrorEnvelope, "description": "Rate limit exceeded."},
+    500: {"model": ErrorEnvelope, "description": "Internal server error."},
+}
+
+
+def request_id_for(request: Request) -> str:
+    return getattr(request.state, "request_id", "unknown")
+
+
+def mask_api_key(value: str | None) -> str:
+    if not value:
+        return "-"
+    cleaned = str(value).strip()
+    return cleaned[:8]
+
+
+def error_payload(request: Request, code: str, message: str) -> dict:
+    return {"error": {"code": code, "message": message, "request_id": request_id_for(request)}}
+
+
+def error_response(request: Request, status_code: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content=error_payload(request, code, message))
+
+
+def validate_api_key_or_raise(request: Request) -> str:
+    key = request.headers.get("x-api-key")
+    ok, info = auth.validate_key(key)
+    if ok:
+        return key
+    if info == "missing":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API key.")
+    if info == "invalid":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
+    if info == "rate_limited":
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded.")
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized.")
+
+
+def validate_optional_stripe_key(name: str, value: str | None, prefix: str) -> str:
+    if not value:
+        return f"{name}: missing"
+    if not value.startswith(prefix):
+        raise RuntimeError(f"{name} is malformed; expected prefix '{prefix}'.")
+    return f"{name}: configured"
+
+
+def startup_summary_lines() -> list[str]:
+    origins_source = "configured" if os.environ.get("ALLOWED_ORIGINS") else "default_fallback"
+    lines = [
+        f"ALLOWED_ORIGINS ({origins_source}): {', '.join(ALLOWED_ORIGINS)}",
+        "HF_TOKEN: configured" if os.environ.get("HF_TOKEN") else "HF_TOKEN: missing",
+        "OLLAMA_URL: configured" if (os.environ.get("OLLAMA_URL") or os.environ.get("OLLAMA_HOST")) else "OLLAMA_URL: missing",
+        "ANTHROPIC_API_KEY: configured" if os.environ.get("ANTHROPIC_API_KEY") else "ANTHROPIC_API_KEY: missing",
+        validate_optional_stripe_key("STRIPE_SECRET_KEY", os.environ.get("STRIPE_SECRET_KEY"), "sk_"),
+        validate_optional_stripe_key("STRIPE_PUBLISHABLE_KEY", os.environ.get("STRIPE_PUBLISHABLE_KEY"), "pk_"),
+        validate_optional_stripe_key("STRIPE_WEBHOOK_SECRET", os.environ.get("STRIPE_WEBHOOK_SECRET"), "whsec_"),
+        "Docs: enabled at /docs and /redoc",
+    ]
+    return lines
+
+
+@app.on_event("startup")
+async def on_startup():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(ANALYSES_DIR, exist_ok=True)
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    print("[startup] Adversarial Framing Engine API", flush=True)
+    for line in startup_summary_lines():
+        print(f"[startup] {line}", flush=True)
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    if not getattr(request.state, "request_id", None):
+        request.state.request_id = str(uuid.uuid4())
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request.state.request_id
+    return response
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    started = time.perf_counter()
+    if not getattr(request.state, "request_id", None):
+        request.state.request_id = str(uuid.uuid4())
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        request_logger.info(
+            "method=%s path=%s api_key=%s status=%s duration_ms=%s request_id=%s",
+            request.method,
+            request.url.path,
+            mask_api_key(request.headers.get("x-api-key")),
+            status_code,
+            elapsed_ms,
+            request_id_for(request),
+        )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    message = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    code_map = {
+        400: "bad_request",
+        401: "unauthorized",
+        404: "not_found",
+        429: "rate_limited",
+    }
+    code = code_map.get(exc.status_code, "http_error")
+    return error_response(request, exc.status_code, code, message)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    message = "; ".join(err.get("msg", "Invalid request.") for err in exc.errors()) or "Invalid request."
+    return error_response(request, status.HTTP_400_BAD_REQUEST, "validation_error", message)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    print(f"[unhandled_exception] request_id={request_id_for(request)} error={exc}", flush=True)
+    return error_response(
+        request,
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
+        "internal_error",
+        "An unexpected error occurred.",
+    )
+
 
 def get_clients():
     clients = {}
@@ -99,11 +478,6 @@ def get_clients():
     if not clients:
         raise ValueError("No models configured. Set HF_TOKEN, OLLAMA_URL, or ANTHROPIC_API_KEY.")
     return clients
-
-
-class AnalyzeRequest(BaseModel):
-    problem: str
-    domain: str = "general"
 
 
 def robust_json_loads(text: str):
@@ -187,6 +561,294 @@ def normalize_llm_output(obj: Any, expected_field: str | None = None, expected_i
         return {expected_field or "consensus": str(obj)}
 
     return obj
+
+
+STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from", "how", "if",
+    "in", "into", "is", "it", "its", "of", "on", "or", "that", "the", "their", "them",
+    "then", "there", "they", "this", "to", "use", "using", "with", "without", "while",
+    "you", "your",
+}
+
+SOFT_CONSENSUS_MARKERS = [
+    "balance",
+    "balanced",
+    "human oversight",
+    "keep humans",
+    "human in the loop",
+    "augment",
+    "rather than replace",
+    "hybrid model",
+]
+
+SOLUTIONIST_MARKERS = [
+    "build",
+    "launch",
+    "create",
+    "develop",
+    "design",
+    "implement",
+    "roadmap",
+    "platform",
+    "app",
+    "tool",
+    "startup",
+    "go-to-market",
+    "scale",
+    "optimize",
+    "solution",
+]
+
+ATTACK_MARKERS = [
+    "assumes",
+    "assumption",
+    "fragile",
+    "fragility",
+    "contradiction",
+    "tradeoff",
+    "tension",
+    "fails",
+    "failure",
+    "breaks",
+    "incentive",
+    "proxy",
+    "externality",
+    "bottleneck",
+    "collapses",
+    "only works",
+    "if everyone",
+]
+
+ACTION_MARKERS = [
+    "mandate",
+    "force",
+    "ban",
+    "audit",
+    "publish",
+    "split",
+    "centralize",
+    "decentralize",
+    "cap",
+    "price",
+    "tax",
+    "limit",
+    "require",
+    "shift",
+    "replace",
+    "stop",
+    "start",
+    "cut",
+    "tie",
+    "move",
+    "buy",
+    "sell",
+    "hire",
+    "fire",
+    "freeze",
+    "delay",
+    "accelerate",
+    "redirect",
+    "open",
+    "close",
+    "rewrite",
+    "measure",
+]
+
+ABSTRACT_OBSERVATION_MARKERS = [
+    "is fragile",
+    "creates fragility",
+    "reveals",
+    "suggests",
+    "indicates",
+    "often label",
+    "tends to",
+    "may introduce",
+    "could become",
+    "functions as",
+]
+
+
+def tokenize_for_overlap(text: str) -> set[str]:
+    words = re.findall(r"[a-z0-9]+", (text or "").lower())
+    return {w for w in words if len(w) > 2 and w not in STOPWORDS}
+
+
+def overlap_ratio(a: str, b: str) -> float:
+    ta = tokenize_for_overlap(a)
+    tb = tokenize_for_overlap(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def looks_soft_consensus(text: str) -> bool:
+    low = (text or "").lower()
+    return any(marker in low for marker in SOFT_CONSENSUS_MARKERS)
+
+
+def looks_solutionist(text: str) -> bool:
+    low = (text or "").lower()
+    return sum(1 for marker in SOLUTIONIST_MARKERS if marker in low) >= 2
+
+
+def has_attack_language(text: str) -> bool:
+    low = (text or "").lower()
+    return any(marker in low for marker in ATTACK_MARKERS)
+
+
+def looks_actionable(text: str) -> bool:
+    low = (text or "").lower()
+    if any(marker in low for marker in ACTION_MARKERS):
+        return True
+    return bool(re.search(r"\b(do|make|turn|use|run|create|build|implement|enforce|assign)\b", low))
+
+
+def looks_purely_observational(text: str) -> bool:
+    low = (text or "").lower()
+    return any(marker in low for marker in ABSTRACT_OBSERVATION_MARKERS) and not looks_actionable(low)
+
+
+def normalize_domain(value: str | None) -> str:
+    cleaned = (value or "").strip().lower()
+    if cleaned in DOMAIN_CONFIGS:
+        return cleaned
+    if cleaned:
+        print(f"[warn] unknown domain '{cleaned}' requested; falling back to 'general'", flush=True)
+    return "general"
+
+
+def normalize_verbosity(value: str | None) -> str:
+    cleaned = (value or "").strip().lower()
+    if cleaned in {"compact", "balanced", "detailed"}:
+        return cleaned
+    return "balanced"
+
+
+PRESSURE_MODES = {
+    "red_team": "Attack the dominant story as if your job is to find the failure path before an opponent does. Prioritize hidden weaknesses, exploitability, and brittle confidence.",
+    "institutional_critique": "Treat institutions, incentives, and legitimacy as the main explanatory variables. Prioritize power, dependency, governance, and narrative cover.",
+    "economic_pressure": "Interpret the problem through incentives, rent extraction, cost shifting, concentration, and mispriced externalities.",
+    "systems_collapse": "Prioritize bottlenecks, cascade risk, hidden coupling, delayed failure, and nonlinear breakdown.",
+    "strategic_risk": "Focus on adversarial exposure, asymmetric downside, coordination traps, and decision-making under uncertainty.",
+    "psychological_pressure": "Focus on status motives, self-deception, signaling, fear management, and emotional narratives disguising themselves as logic.",
+    "geopolitical": "Treat power blocs, supply dependencies, sovereignty, bargaining leverage, and strategic capture as first-order variables.",
+    "founder_stress_test": "Interrogate whether ambition, narrative, and growth logic are masking fragility, false moats, or unsound economics.",
+    "narrative_warfare": "Focus on frame control, legitimacy manufacturing, selective disclosure, and whose interests the dominant story protects.",
+    "coordination_failure": "Prioritize misaligned incentives, collective action costs, local rationality creating global failure, and trust dependence.",
+}
+
+
+def normalize_pressure_mode(value: str | None) -> str:
+    cleaned = (value or "").strip().lower().replace(" ", "_")
+    if cleaned in PRESSURE_MODES:
+        return cleaned
+    return "institutional_critique"
+
+
+def verbosity_instruction(value: str) -> str:
+    if value == "compact":
+        return "Keep each approach and reasoning compressed: 1 sentence each, high signal, no filler."
+    if value == "detailed":
+        return "Allow slightly more detail: up to 3 sentences for approach and 2 for reasoning, but stay sharp and concrete."
+    return "Keep each approach concise: 1-2 sentences for approach and 1 sentence for reasoning."
+
+
+def heuristic_question_type(problem: str) -> str:
+    low = (problem or "").strip().lower()
+    if any(marker in low for marker in ["challenge", "attack", "debunk", "critique", "is this wrong", "argue against"]):
+        return "adversarial"
+    if any(marker in low for marker in ["what should we do", "how do we", "how should we operate", "next week", "execute", "operational"]):
+        return "operational"
+    if any(marker in low for marker in ["best path", "strategy", "strategic", "where should we go", "what should our strategy"]):
+        return "strategic"
+    if any(marker in low for marker in ["what is true", "what assumptions", "analyze", "why is", "what explains", "what's really happening"]):
+        return "analytical"
+    return "strategic"
+
+
+def question_type_badge(value: str) -> str:
+    return f"{value} question"
+
+
+def build_default_scores(approaches: list[dict]) -> list[dict]:
+    defaults = []
+    for i, item in enumerate(approaches):
+        defaults.append({
+            "lens": item.get("lens") or f"lens_{i+1}",
+            "novelty": 0.5,
+            "feasibility": 0.5,
+            "risk": 0.5,
+            "expected_impact": 0.5,
+        })
+    return defaults
+
+
+def is_consensus_adjacent(consensus: str, approach: str) -> bool:
+    low = (approach or "").lower()
+    if any(marker in low for marker in SOFT_CONSENSUS_MARKERS):
+        return True
+    if overlap_ratio(consensus, approach) >= 0.38:
+        return True
+    return False
+
+
+def assess_divergence(consensus: str, approaches: list[dict], require_actionable: bool = True) -> dict:
+    issues = []
+    adjacent = 0
+    duplicate_pairs = 0
+    solutionist = 0
+    low_attack_signal = 0
+    non_actionable = 0
+    observational_only = 0
+
+    for item in approaches:
+        approach_text = item.get("approach", "")
+        reasoning_text = item.get("reasoning", "")
+        combined = f"{approach_text} {reasoning_text}".strip()
+        if is_consensus_adjacent(consensus, approach_text):
+            adjacent += 1
+        if looks_solutionist(combined):
+            solutionist += 1
+        if not has_attack_language(combined):
+            low_attack_signal += 1
+        if require_actionable:
+            if not looks_actionable(approach_text):
+                non_actionable += 1
+            if looks_purely_observational(approach_text):
+                observational_only += 1
+
+    for i in range(len(approaches)):
+        for j in range(i + 1, len(approaches)):
+            if overlap_ratio(approaches[i].get("approach", ""), approaches[j].get("approach", "")) >= 0.45:
+                duplicate_pairs += 1
+
+    if looks_soft_consensus(consensus):
+        issues.append("consensus_is_soft")
+    if adjacent >= 2:
+        issues.append("approaches_too_close_to_consensus")
+    if duplicate_pairs >= 2:
+        issues.append("approaches_not_distinct")
+    if solutionist >= 2:
+        issues.append("too_solution_oriented")
+    if low_attack_signal >= 3:
+        issues.append("not_enough_assumption_or_fragility_language")
+    if require_actionable and non_actionable >= 2:
+        issues.append("approaches_not_actionable_enough")
+    if require_actionable and observational_only >= 2:
+        issues.append("approaches_too_observational")
+    if len(approaches) < 5:
+        issues.append("missing_lenses")
+
+    return {
+        "ok": len(issues) == 0,
+        "issues": issues,
+        "adjacent": adjacent,
+        "duplicate_pairs": duplicate_pairs,
+        "solutionist": solutionist,
+        "low_attack_signal": low_attack_signal,
+        "non_actionable": non_actionable,
+        "observational_only": observational_only,
+    }
 
 
 async def call_llm(client: Any, system: str, user: str) -> dict:
@@ -294,7 +956,7 @@ def composite_score(s: dict, c: dict) -> float:
     r  = s.get("risk", 0.5)
     ei = s.get("expected_impact", 0.5)
     cd = c.get("confidence_drop", 0.2)
-    return ((n * 0.25 + f * 0.35 + ei * 0.35) * (1 - r * 0.15)) * (1 - cd * 0.3)
+    return ((n * 0.30 + f * 0.28 + ei * 0.34) * (1 - r * 0.18)) * (1 - cd * 0.42)
 
 
 def event(payload: dict) -> str:
@@ -361,6 +1023,7 @@ def save_analysis(key: str, problem: str, result: dict) -> dict:
         "domain_config": result.get("domain_config", {}),
         "consensus": result.get("consensus", {}),
         "ranked": result.get("ranked", []),
+        "settings": result.get("settings", {}),
         "created_at": utc_now_iso(),
     }
     write_json_file(os.path.join(user_dir, f"{analysis_id}.json"), record)
@@ -424,13 +1087,13 @@ def load_static_html(name: str) -> str:
         return f.read()
 
 async def keep_alive(coro):
-    """Wait for a coroutine to finish, yielding SSE pings every 15 s to prevent idle timeout.
+    """Wait for a coroutine to finish, yielding SSE pings every 5 s to prevent idle timeout.
     Yields SSE ping strings while waiting, then yields {"_result": value} once done.
     Raises if the underlying coroutine raised.
     """
     task = asyncio.create_task(coro)
     while True:
-        done, _ = await asyncio.wait({task}, timeout=15.0)
+        done, _ = await asyncio.wait({task}, timeout=5.0)
         if task in done:
             break
         # task still running — send a keep-alive ping
@@ -440,9 +1103,15 @@ async def keep_alive(coro):
     yield {"_result": result}
 
 
-async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = None):
+async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = None, request_id: str | None = None):
     try:
         clients = get_clients()
+        domain_key = normalize_domain(req.domain)
+        verbosity = normalize_verbosity(req.verbosity)
+        pressure_mode = normalize_pressure_mode(req.pressure_mode)
+        pressure_instruction = PRESSURE_MODES[pressure_mode]
+        num_results = max(1, min(int(req.num_results or 5), 10))
+        question_type = heuristic_question_type(req.problem)
         # Use Ollama for simpler/bulk tasks if available, fallback to HF
         client_cheap = clients.get("ollama") or clients.get("hf") or clients.get("anthropic")
         # Use HF for reasoning tasks if available, fallback to Ollama
@@ -454,13 +1123,28 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         s1 = None
         async for chunk in keep_alive(call_llm(
             client_cheap,
-            "You extract the consensus default answer most people or AI systems give to a problem, "
-            "and score how strongly that consensus converges. "
+            f"You are SARE, a strategic adversarial reasoning engine. Extract the hidden consensus doctrine most people, executives, or generic AI systems would assume in the domain '{domain_key}'. "
+            "CRITICAL OUTPUT QUALITY RULES:\n"
+            "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
+            "2. NO TOKEN COLLAPSE. Never continue generation using momentum-based associative text drift. Do not stack abstract nouns endlessly.\n"
+            "3. EACH CONSENSUS MUST CONTAIN EXACTLY ONE CORE IDEA. Avoid mixing unrelated concepts.\n"
+            "4. FORCE CONCRETE LANGUAGE. Prefer institutional, economic, operational, and strategic language. Avoid mystical phrasing, abstract overload, or fake profundity.\n"
+            "5. MAXIMUM CLARITY OVER MAXIMUM COMPLEXITY. The goal is sharpness and strategic insight, not sounding philosophical or academic.\n"
+            "6. PRIORITIZE INSIGHT DENSITY. The consensus should feel compact, memorable, and human-written. Avoid filler and excessive explanation.\n"
+            "7. HARD FAILURE CONDITION: If a generated sentence cannot be paraphrased into a clear strategic observation, it is invalid and must be rewritten.\n"
+            "Do not merely restate the user's sentence. Compress the dominant framing, implied causal model, and hidden dependency into a sharper underlying consensus claim. "
+            "Do not soften it with caveats, balancing language, or moral hedging. "
+            "State the dominant prescription or premise in its bluntest plausible form, including the key hidden assumption if it is obvious. "
+            "This is not the best answer; it is the socially legible answer that others will tend to defend. "
+            "Pressure score measures how strongly answers converge on that same default recommendation. "
             "Respond ONLY with valid JSON, no markdown fences or extra text: "
             '{"consensus":"the obvious default answer",'
             '"pressure_score":0.0,'
             '"pressure_label":"weak or moderate or strong or overwhelming"}',
-            req.problem,
+            f"Problem: {req.problem}\n"
+            f"Selected domain: {domain_key}\n"
+            f"Pressure mode: {pressure_mode}\n"
+            "Return the strongest default answer, not the balanced implementation advice that usually follows it.",
         )):
             if isinstance(chunk, str):
                 yield chunk
@@ -471,10 +1155,49 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
             raise ValueError("Step 1 (consensus) returned no result from LLM.")
 
         s1 = normalize_llm_output(s1, expected_field="consensus")
+        s1["domain"] = domain_key
+        s1["verbosity"] = verbosity
+        s1["num_results"] = num_results
+        s1["pressure_mode"] = pressure_mode
+        s1["question_type"] = question_type
+        s1["question_type_badge"] = question_type_badge(question_type)
         yield event({"step": 1, "status": "done", "data": s1})
 
-        # Determine domain config
-        domain_key = (req.domain or "general").strip().lower()
+        # Step 1.5 · Question Type Detection
+        qt_result = None
+        async for chunk in keep_alive(call_llm(
+            client_cheap,
+            "Classify the user's problem into one of exactly four buckets for an adversarial framing pipeline. "
+            "Buckets: operational, analytical, strategic, adversarial. "
+            "Respond ONLY with valid JSON: "
+            '{"question_type":"operational or analytical or strategic or adversarial"}',
+            f"Problem: {req.problem}\nSelected domain: {domain_key}\nPressure mode: {pressure_mode}\nReturn only the best-fit label.",
+        )):
+            if isinstance(chunk, dict) and "_result" in chunk:
+                qt_result = chunk["_result"]
+
+        try:
+            if qt_result is not None:
+                qt_result = normalize_llm_output(qt_result, expected_field="question_type")
+                candidate = str(qt_result.get("question_type") or "").strip().lower()
+                if candidate in {"operational", "analytical", "strategic", "adversarial"}:
+                    question_type = candidate
+        except Exception as exc:
+            print(f"[step1.5] question type parse failed; using heuristic fallback '{question_type}': {exc}", flush=True)
+
+        s1["question_type"] = question_type
+        s1["question_type_badge"] = question_type_badge(question_type)
+
+        yield event({
+            "type": "context",
+            "data": {
+                "domain": domain_key,
+                "pressure_mode": pressure_mode,
+                "question_type": question_type,
+                "question_type_badge": question_type_badge(question_type),
+            },
+        })
+
         domain_cfg = DOMAIN_CONFIGS.get(domain_key, DOMAIN_CONFIGS["general"])
 
         # ── Step 2 · Adversarial Lenses ───────────────────────────────
@@ -491,18 +1214,74 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
                 "produced the highest-composite approaches - ensure yours is strong."
             )
 
+        interrogation_mode = question_type in {"analytical", "adversarial"}
+        if interrogation_mode:
+            type_instruction = (
+                "This is an analytical/adversarial question. Each lens must produce an ASSUMPTION INTERROGATION. "
+                "Expose what the narrative takes for granted, who benefits from that framing, and what it deliberately obscures. "
+                "Output an insight plus its implication, not an action plan."
+            )
+            output_schema = '{"approaches":[{"lens":"...","approach":"assumption interrogation insight","reasoning":"its implication, beneficiaries, and what it obscures"}]}'
+        else:
+            type_instruction = (
+                "This is an operational/strategic question. Each lens must produce a concrete adversarial move, not just an observation."
+            )
+            output_schema = '{"approaches":[{"lens":"...","approach":"specific adversarial strategy","reasoning":"assumption, contradiction, incentive, or fragility exploited"}]}'
+
         s2 = None
-        async for chunk in keep_alive(call_llm(
-            client_smart,
-            "Generate non-obvious approaches through 5 adversarial lenses, actively working AGAINST the consensus. "
+        lens_system = (
+            "You are SARE: Strategic Adversarial Reasoning Engine. Generate 5 adversarial lenses that stress-test the consensus rather than politely commenting on it. "
+            "CRITICAL OUTPUT QUALITY RULES:\n"
+            "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
+            "2. NO TOKEN COLLAPSE. Never continue generation using momentum-based associative text drift. Do not stack abstract nouns endlessly.\n"
+            "3. EACH LENS MUST CONTAIN EXACTLY ONE CORE IDEA. Focus on one contradiction, fragility, incentive, or tension per lens. Avoid mixing unrelated concepts.\n"
+            "4. FORCE CONCRETE LANGUAGE. Prefer institutional, economic, operational, and strategic language. Avoid mystical phrasing, abstract overload, or fake profundity.\n"
+            "5. MAXIMUM CLARITY OVER MAXIMUM COMPLEXITY. The goal is sharpness and strategic insight, not sounding philosophical or academic.\n"
+            "6. PRIORITIZE INSIGHT DENSITY. Each lens should feel compact, memorable, and human-written. Avoid filler and excessive explanation.\n"
+            "7. HARD FAILURE CONDITION: If a generated sentence cannot be paraphrased into a clear strategic observation, it is invalid and must be rewritten.\n"
+            "Approaches that could appear in a balanced essay are rejected. "
             f"Use these domain framings for domain '{domain_key}':\n{lens_descr}\n"
             f"{pattern_hint}\n"
-            "Make each approach specific and actionable. "
-            "Respond ONLY with valid JSON, no markdown: "
-            '{"approaches":[{"lens":"...","approach":"specific actionable approach","reasoning":"why this diverges from consensus"}]}',
-            f"Problem: {req.problem}\n\nConsensus to work against: {s1.get('consensus', '')}\n\n"
-            "Generate one genuinely non-obvious approach per lens.",
-        )):
+            f"{verbosity_instruction(verbosity)} "
+            f"Pressure mode '{pressure_mode}': {pressure_instruction} "
+            f"{type_instruction} "
+            "Each lens must expose one of the following: a false assumption, a systemic contradiction, a hidden incentive, a fragility, an institutional tension, or a second-order consequence. "
+            "Do not generate startup ideas, implementation plans, policy blueprints, motivational advice, or generic recommendations. "
+            "Reject anything that sounds like polished consultant advice, innovation brainstorming, or safe executive synthesis. "
+            "The output should feel strategically uncomfortable, compressed, insight-dense, and hard to forget. "
+            "The 5 lenses must come from genuinely different reasoning structures: incentives, fragility, coordination, power, narrative, dependency, governance, psychology, economic structure, or second-order systems dynamics. "
+            "At least one lens may partially defend the consensus conditionally, at least one should attack it directly, and at least one should reframe the premise entirely. Avoid artificial agreement. "
+            + (
+                "For each lens: approach is the insight. reasoning states its implication, who benefits from the framing, what the framing obscures, and what second-order instability follows if the consensus spreads. "
+                if interrogation_mode else
+                "For each lens: approach is a strategic adversarial interpretation or pressure move, not an implementation plan. "
+                "Avoid verbs like create, implement, develop, establish, design, or propose unless they are unavoidable. "
+                "Before finalizing each approach, check: (a) does it diverge uncomfortably from the consensus — not just modify it? "
+                "(b) does it expose a structural tension, contradiction, or fragility rather than merely offering a fix? "
+                "(c) would an expert feel this changed the way the problem is framed? If any answer is no, rewrite. "
+                "For each lens: approach is the compressed strategic interpretation. reasoning is why that move bites and what assumption, incentive, contradiction, fragility, or second-order effect it exposes. "
+            )
+            + "Respond ONLY with valid JSON, no markdown: "
+            + output_schema
+        )
+        lens_user = (
+            f"Problem: {req.problem}\n"
+            f"Selected domain: {domain_key}\n"
+            f"Pressure mode: {pressure_mode}\n"
+            f"Requested results: {num_results}\n"
+            f"Verbosity: {verbosity}\n\n"
+            f"Question type: {question_type}\n\n"
+            f"Consensus to work against: {s1.get('consensus', '')}\n\n"
+            "Generate exactly one genuinely adversarial output per lens: first_principles, inversion, analogical, "
+            "constraint_removal, second_order.\n"
+            "Default to adversarial lenses, assumption attacks, fragility analysis, and systemic contradictions.\n"
+            + (
+                "Each output should be an insight plus implication, not an action."
+                if interrogation_mode else
+                "Each output should be a strategic interpretation or pressure move, not a solution framework."
+            )
+        )
+        async for chunk in keep_alive(call_llm(client_smart, lens_system, lens_user)):
             if isinstance(chunk, str):
                 yield chunk
             elif isinstance(chunk, dict) and "_result" in chunk:
@@ -528,11 +1307,71 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         if not approaches:
             approaches = [{
                 "lens": "fallback",
-                "approach": "Reframe the problem with one contrarian strategy that directly challenges the default consensus.",
-                "reasoning": "Used because the model output did not include structured approaches.",
+                "approach": (
+                    "The dominant narrative is likely protecting an unstated assumption about incentives, control, or risk allocation."
+                    if interrogation_mode else
+                    "Mandate a formal review that isolates the consensus assumption most likely to fail, assigns an owner to attack it, and changes policy only after that red-team pass."
+                ),
+                "reasoning": (
+                    "Used because the model output did not include structured assumption interrogations."
+                    if interrogation_mode else
+                    "Used because the model output did not include structured adversarial strategies."
+                ),
             }]
 
+        divergence_check = assess_divergence(s1.get("consensus", ""), approaches, require_actionable=not interrogation_mode)
+        if not divergence_check["ok"]:
+            retry_feedback = ", ".join(divergence_check["issues"]) or "insufficient divergence"
+            retry_user = (
+                f"{lens_user}\n\n"
+                f"Your previous attempt failed this check: {retry_feedback}.\n"
+                "Do not repeat hybrid, balanced, oversight-heavy, or solution-oriented versions of the consensus.\n"
+                "Force distance: at least 3 outputs should feel surprising or initially uncomfortable to a mainstream operator.\n"
+                "At least 4 outputs must explicitly attack an assumption, contradiction, incentive, or fragility.\n"
+                + (
+                    "Every output must expose what the framing takes for granted, who benefits from it, and what it obscures.\n"
+                    if interrogation_mode else
+                    "Every output must expose a structural tension, contradiction, strategic instability, or second-order consequence rather than devolving into a solution pitch.\n"
+                )
+                + f"Rejected prior approaches:\n{json.dumps(approaches, ensure_ascii=False)}"
+            )
+            s2_retry = None
+            async for chunk in keep_alive(call_llm(client_smart, lens_system, retry_user)):
+                if isinstance(chunk, str):
+                    yield chunk
+                elif isinstance(chunk, dict) and "_result" in chunk:
+                    s2_retry = chunk["_result"]
+
+            if s2_retry is not None:
+                s2_retry = normalize_llm_output(s2_retry, expected_field="approaches", expected_item_keys=["lens", "approach"])
+                retry_approaches = []
+                for i, item in enumerate(s2_retry.get("approaches", [])):
+                    if isinstance(item, dict):
+                        lens = str(item.get("lens") or item.get("name") or f"lens_{i+1}").strip()
+                        approach = str(item.get("approach") or item.get("idea") or item.get("text") or "").strip()
+                        reasoning = str(item.get("reasoning") or "").strip()
+                        if not approach:
+                            approach = json.dumps(item, ensure_ascii=False)
+                        retry_approaches.append({"lens": lens, "approach": approach, "reasoning": reasoning})
+                    else:
+                        retry_approaches.append({"lens": f"lens_{i+1}", "approach": str(item), "reasoning": ""})
+
+                retry_check = assess_divergence(s1.get("consensus", ""), retry_approaches, require_actionable=not interrogation_mode)
+                if retry_approaches and (
+                    retry_check["ok"]
+                    or retry_check["adjacent"] < divergence_check["adjacent"]
+                    or retry_check["duplicate_pairs"] < divergence_check["duplicate_pairs"]
+                ):
+                    approaches = retry_approaches
+                    s2 = s2_retry
+
         s2["approaches"] = approaches
+        s2["domain"] = domain_key
+        s2["pressure_mode"] = pressure_mode
+        s2["question_type"] = question_type
+        s2["question_type_badge"] = question_type_badge(question_type)
+        s2["verbosity"] = verbosity
+        s2["num_results"] = num_results
         ap_str = "\n".join(f"{i+1}. [{a.get('lens', f'lens_{i+1}')}] {a.get('approach', '')}" for i, a in enumerate(approaches))
         yield event({"step": 2, "status": "done", "data": s2})
 
@@ -542,14 +1381,14 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         async for chunk in keep_alive(call_llm(
             client_cheap,
             "Score each approach on 4 dimensions as 0.0-1.0 floats. "
-            "novelty: how much it diverges from consensus. "
-            "feasibility: realistic chance of working given real-world constraints. "
-            "risk: implementation/failure risk (higher = riskier). "
-            "expected_impact: potential upside if it works. "
-            "Be honest — not generous. "
+            "novelty: how non-obvious, insight-dense, and cognitively disruptive the lens is. "
+            "feasibility: how defensible the reasoning is under real-world incentives, constraints, and institutional behavior. "
+            "risk: how much systemic fragility, strategic instability, or contradiction the lens exposes if true (higher = more dangerous). "
+            "expected_impact: how much explanatory power, reframing force, and decision-changing pressure the lens carries. "
+            "Reward contradiction exposure, hidden incentive awareness, second-order depth, and anti-groupthink differentiation. Be honest, skeptical, and not generous. "
             "Respond ONLY with valid JSON, no markdown: "
             '{"scores":[{"lens":"...","novelty":0.0,"feasibility":0.0,"risk":0.0,"expected_impact":0.0}]}',
-            f"Problem: {req.problem}\nConsensus baseline: {s1.get('consensus', '')}\nApproaches to score:\n{ap_str}",
+            f"Problem: {req.problem}\nSelected domain: {domain_key}\nPressure mode: {pressure_mode}\nVerbosity: {verbosity}\nConsensus baseline: {s1.get('consensus', '')}\nApproaches to score:\n{ap_str}",
         )):
             if isinstance(chunk, str):
                 yield chunk
@@ -557,9 +1396,23 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
                 s3 = chunk["_result"]
 
         if s3 is None:
-            raise ValueError("Step 3 (scoring) returned no result from LLM.")
+            print(f"[step3] no score response; using defaults for domain={domain_key} question_type={question_type}", flush=True)
+            s3 = {"scores": build_default_scores(approaches)}
+        else:
+            try:
+                s3 = normalize_llm_output(s3, expected_field="scores", expected_item_keys=["novelty", "feasibility"])
+                if not isinstance(s3.get("scores"), list) or not s3.get("scores"):
+                    raise ValueError("scores field missing or not a list")
+            except Exception as exc:
+                print(f"[step3] malformed score response; raw={json.dumps(s3, ensure_ascii=False)[:1500]} error={exc}", flush=True)
+                s3 = {"scores": build_default_scores(approaches)}
 
-        s3 = normalize_llm_output(s3, expected_field="scores", expected_item_keys=["novelty", "feasibility"])
+        s3["domain"] = domain_key
+        s3["pressure_mode"] = pressure_mode
+        s3["question_type"] = question_type
+        s3["question_type_badge"] = question_type_badge(question_type)
+        s3["verbosity"] = verbosity
+        s3["num_results"] = num_results
         yield event({"step": 3, "status": "done", "data": s3})
 
         # ── Step 4 · Adversarial Critic Pass ──────────────────────────
@@ -567,12 +1420,21 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         s4 = None
         async for chunk in keep_alive(call_llm(
             client_smart,
-            "You are an adversarial critic. Your job is to break each idea — find specific flawed assumptions, "
-            "hidden weaknesses, and realistic failure modes. Be precise and ruthlessly honest. "
+            "You are SARE's hostile reviewer. Break each lens by finding where even the adversarial critique overreaches. "
+            "CRITICAL OUTPUT QUALITY RULES:\n"
+            "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
+            "2. NO TOKEN COLLAPSE. Never continue generation using momentum-based associative text drift. Do not stack abstract nouns endlessly.\n"
+            "3. EACH CRITIQUE MUST CONTAIN EXACTLY ONE CORE IDEA per point. Avoid mixing unrelated concepts.\n"
+            "4. FORCE CONCRETE LANGUAGE. Prefer institutional, economic, operational, and strategic language. Avoid mystical phrasing, abstract overload, or fake profundity.\n"
+            "5. MAXIMUM CLARITY OVER MAXIMUM COMPLEXITY. The goal is sharpness and strategic insight, not sounding philosophical or academic.\n"
+            "6. PRIORITIZE INSIGHT DENSITY. Each critique should feel compact, memorable, and human-written. Avoid filler and excessive explanation.\n"
+            "7. HARD FAILURE CONDITION: If a generated sentence cannot be paraphrased into a clear strategic observation, it is invalid and must be rewritten.\n"
+            "Attack weak logic, ideological bias, unsupported claims, emotional persuasion disguised as reasoning, shallow contrarianism, and false dichotomies. "
+            "Find specific flawed assumptions, blind spots, hidden weaknesses, and realistic failure modes. Be precise and ruthlessly honest, not summarizing. "
             "Respond ONLY with valid JSON, no markdown: "
             '{"critiques":[{"lens":"...","weaknesses":["specific weakness 1","specific weakness 2"],'
             '"failure_modes":["how it fails in practice"],"confidence_drop":0.0}]}',
-            f"Problem: {req.problem}\nApproaches to break:\n{ap_str}",
+            f"Problem: {req.problem}\nSelected domain: {domain_key}\nPressure mode: {pressure_mode}\nQuestion type: {question_type}\nApproaches to break:\n{ap_str}",
         )):
             if isinstance(chunk, str):
                 yield chunk
@@ -583,6 +1445,10 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
             raise ValueError("Step 4 (critic) returned no result from LLM.")
 
         s4 = normalize_llm_output(s4, expected_field="critiques", expected_item_keys=["weaknesses", "failure_modes"])
+        s4["domain"] = domain_key
+        s4["pressure_mode"] = pressure_mode
+        s4["question_type"] = question_type
+        s4["question_type_badge"] = question_type_badge(question_type)
         yield event({"step": 4, "status": "done", "data": s4})
 
         # ── Step 5 · Merge, Rank, Return ──────────────────────────────
@@ -596,7 +1462,17 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
             merged.append({**a, "scores": sc, "critique": cr, "composite": composite_score(sc, cr)})
 
         merged.sort(key=lambda x: x["composite"], reverse=True)
-        result = {"domain": domain_key, "domain_config": domain_cfg, "consensus": s1, "ranked": merged}
+        merged = merged[:num_results]
+        result = {
+            "domain": domain_key,
+            "pressure_mode": pressure_mode,
+            "question_type": question_type,
+            "question_type_badge": question_type_badge(question_type),
+            "domain_config": domain_cfg,
+            "consensus": s1,
+            "ranked": merged,
+            "settings": {"num_results": num_results, "verbosity": verbosity, "pressure_mode": pressure_mode},
+        }
         if save_key:
             saved = save_analysis(save_key, req.problem, result)
             result["analysis_id"] = saved["id"]
@@ -607,18 +1483,33 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
 
     except Exception as e:
         import traceback
-        print(f"[analysis_stream_generator] exception: {e}", flush=True)
+        print(f"[analysis_stream_generator] request_id={request_id or 'unknown'} exception: {e}", flush=True)
         traceback.print_exc()
-        yield event({"type": "error", "message": str(e)})
+        yield event({
+            "type": "error",
+            "message": "An unexpected error occurred.",
+            "error": {
+                "code": "internal_error",
+                "message": "An unexpected error occurred.",
+                "request_id": request_id or "unknown",
+            },
+        })
 
 
-@app.post("/analyze")
-async def analyze(req: AnalyzeRequest):
+@app.post(
+    "/analyze",
+    response_model=None,
+    summary="Run anonymous adversarial analysis",
+    description="Streams the five-step adversarial framing pipeline without API-key authentication.",
+    tags=["analysis"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def analyze(request: Request, req: AnalyzeRequest):
     if not req.problem.strip():
         raise HTTPException(status_code=400, detail="problem cannot be empty")
 
     return StreamingResponse(
-        analysis_stream_generator(req),
+        analysis_stream_generator(req, request_id=request_id_for(request)),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -628,22 +1519,19 @@ async def analyze(req: AnalyzeRequest):
     )
 
 
-@app.post("/v1/analyze")
+@app.post(
+    "/v1/analyze",
+    response_model=None,
+    summary="Run authenticated adversarial analysis",
+    description="Streams a saved adversarial analysis, increments usage, and attaches rate-limit headers.",
+    tags=["analysis"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_analyze(request: Request, req: AnalyzeRequest):
     if not req.problem.strip():
         raise HTTPException(status_code=400, detail="problem cannot be empty")
 
-    # API-key protected versioned endpoint
-    key = request.headers.get("x-api-key")
-    ok, info = auth.validate_key(key)
-    if not ok:
-        if info == "missing":
-            return JSONResponse({"error": "missing_api_key"}, status_code=401)
-        if info == "invalid":
-            return JSONResponse({"error": "invalid_api_key"}, status_code=401)
-        if info == "rate_limited":
-            return JSONResponse({"error": "rate_limited"}, status_code=429)
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    key = validate_api_key_or_raise(request)
 
     # increment usage now (counts this call)
     auth.increment_usage(key)
@@ -659,7 +1547,7 @@ async def v1_analyze(request: Request, req: AnalyzeRequest):
 
     # Return the same SSE stream but with rate headers
     return StreamingResponse(
-        analysis_stream_generator(req, save_key=key),
+        analysis_stream_generator(req, save_key=key, request_id=request_id_for(request)),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -670,17 +1558,41 @@ async def v1_analyze(request: Request, req: AnalyzeRequest):
     )
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get(
+    "/",
+    response_model=None,
+    response_class=HTMLResponse,
+    summary="Serve engine UI",
+    description="Returns the main adversarial framing engine HTML interface.",
+    tags=["ui"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def root():
     return load_static_html("index.html")
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get(
+    "/dashboard",
+    response_model=None,
+    response_class=HTMLResponse,
+    summary="Serve dashboard UI",
+    description="Returns the authenticated dashboard for usage and saved analyses.",
+    tags=["ui"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def dashboard():
     return load_static_html("dashboard.html")
 
 
-@app.get("/patterns", response_class=HTMLResponse)
+@app.get(
+    "/patterns",
+    response_model=None,
+    response_class=HTMLResponse,
+    summary="Serve pattern library UI",
+    description="Returns the public pattern library page backed by aggregate analysis data.",
+    tags=["ui"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def pattern_library():
     return load_static_html("patterns.html")
 
@@ -688,61 +1600,96 @@ async def pattern_library():
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-@app.post("/v1/keys")
+@app.post(
+    "/v1/keys",
+    response_model=ApiKeyResponse,
+    summary="Create API key",
+    description="Generates a new free-tier API key.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_keys():
     # Generate a new free key; return it once
     key = auth.generate_key(tier="free")
-    return JSONResponse({"key": key})
+    return {"key": key}
 
 
-@app.get("/v1/usage")
+@app.get(
+    "/v1/usage",
+    response_model=UsageResponse,
+    summary="Get usage",
+    description="Returns the current authenticated key's usage and rate-limit information.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_usage(request: Request):
-    key = request.headers.get("x-api-key")
-    ok, info = auth.validate_key(key)
-    if not ok:
-        if info == "missing":
-            return JSONResponse({"error": "missing_api_key"}, status_code=401)
-        return JSONResponse({"error": info}, status_code=401)
+    key = validate_api_key_or_raise(request)
     u = auth.usage_info(key)
-    return JSONResponse(u or {})
+    return u or {}
 
 
-@app.get("/v1/analyses")
+@app.get(
+    "/v1/analyses",
+    response_model=AnalysesPageResponse,
+    summary="List saved analyses",
+    description="Returns paginated saved analyses for the authenticated key.",
+    tags=["analysis"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_analyses(request: Request, page: int = 1):
-    key = request.headers.get("x-api-key")
-    ok, info = auth.validate_key(key)
-    if not ok:
-        if info == "missing":
-            return JSONResponse({"error": "missing_api_key"}, status_code=401)
-        return JSONResponse({"error": info}, status_code=401)
-    return JSONResponse(list_analyses(key, page=max(1, page), per_page=20))
+    key = validate_api_key_or_raise(request)
+    return list_analyses(key, page=max(1, page), per_page=20)
 
 
-@app.get("/v1/analyses/{analysis_id}")
+@app.get(
+    "/v1/analyses/{analysis_id}",
+    response_model=AnalysisRecordResponse,
+    summary="Get saved analysis",
+    description="Returns a full saved analysis record for the authenticated key.",
+    tags=["analysis"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_analysis_detail(analysis_id: str, request: Request):
-    key = request.headers.get("x-api-key")
-    ok, info = auth.validate_key(key)
-    if not ok:
-        if info == "missing":
-            return JSONResponse({"error": "missing_api_key"}, status_code=401)
-        return JSONResponse({"error": info}, status_code=401)
+    key = validate_api_key_or_raise(request)
     record = get_analysis_for_key(key, analysis_id)
     if not record:
-        return JSONResponse({"error": "not_found"}, status_code=404)
-    return JSONResponse(record)
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    return record
 
 
-@app.get("/v1/patterns")
+@app.get(
+    "/v1/patterns",
+    response_model=AllPatternsResponse,
+    summary="Get all pattern aggregates",
+    description="Returns public pattern data across all supported domains plus global aggregates.",
+    tags=["patterns"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_patterns():
-    return JSONResponse(patterns.get_all_patterns())
+    return patterns.get_all_patterns()
 
 
-@app.get("/v1/patterns/{domain}")
+@app.get(
+    "/v1/patterns/{domain}",
+    response_model=PatternResponse,
+    summary="Get domain pattern aggregates",
+    description="Returns public pattern data for a single domain.",
+    tags=["patterns"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def v1_patterns_domain(domain: str):
-    return JSONResponse(patterns.compute_patterns(domain))
+    return patterns.compute_patterns(domain)
 
 
-@app.get("/share/{analysis_id}", response_class=HTMLResponse)
+@app.get(
+    "/share/{analysis_id}",
+    response_model=None,
+    response_class=HTMLResponse,
+    summary="Serve shareable analysis page",
+    description="Returns a public HTML page for a saved analysis by ID.",
+    tags=["ui"],
+    responses=COMMON_ERROR_RESPONSES,
+)
 async def share_analysis(analysis_id: str):
     record = get_public_analysis(analysis_id)
     if not record:
@@ -752,5 +1699,49 @@ async def share_analysis(analysis_id: str):
     hydrated = template.replace(
         "__ANALYSIS_JSON__",
         json.dumps(record, ensure_ascii=False).replace("</", "<\\/"),
+    )
+    return HTMLResponse(hydrated)
+
+
+@app.get(
+    "/shareable",
+    response_model=None,
+    response_class=HTMLResponse,
+    summary="Serve shareable page preview",
+    description="Returns a sample public share page for UI preview and QA.",
+    tags=["ui"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def shareable_preview():
+    sample = {
+        "problem": "How should a small team reduce release risk while shipping faster?",
+        "domain": "engineering",
+        "created_at": utc_now_iso(),
+        "consensus": {
+            "consensus": "Add more approvals and longer QA cycles before every release.",
+            "pressure_label": "strong",
+        },
+        "ranked": [
+            {
+                "lens": "first_principles",
+                "approach": "Shift to progressive delivery with per-feature guardrails and rapid rollback.",
+                "composite": 0.781,
+                "scores": {
+                    "novelty": 0.76,
+                    "feasibility": 0.82,
+                    "risk": 0.35,
+                    "expected_impact": 0.88,
+                },
+                "critique": {
+                    "weaknesses": ["Requires investment in observability", "Needs release discipline"],
+                    "failure_modes": ["Rollback not tested regularly"],
+                },
+            }
+        ],
+    }
+    template = load_static_html("shareable.html")
+    hydrated = template.replace(
+        "__ANALYSIS_JSON__",
+        json.dumps(sample, ensure_ascii=False).replace("</", "<\\/"),
     )
     return HTMLResponse(hydrated)

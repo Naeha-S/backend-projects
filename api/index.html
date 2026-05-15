@@ -399,18 +399,120 @@ button.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   letter-spacing: 0.1em;
   color: var(--text3); 
 }
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.ghost-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+}
+
+.settings-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 280px;
+  background: rgba(6, 10, 18, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  z-index: 20;
+  display: none;
+}
+
+.settings-panel.open {
+  display: block;
+}
+
+.settings-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.settings-row label {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.settings-input,
+.settings-select {
+  width: 100%;
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.settings-note {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.5;
+}
 </style>
 <body>
 <div class="wrap">
   <header class="header">
     <div class="header-eyebrow">ADVERSARIAL FRAMING ENGINE</div>
-    <h1 class="header-title">Adversarial Framing <span>Engine</span></h1>
-    <p class="header-sub">Extracts consensus, generates adversarial lenses, scores validity, runs a critic pass, and ranks defensible non-obvious approaches.</p>
+    <div class="header-top">
+      <h1 class="header-title">Adversarial Framing <span>Engine</span></h1>
+      <div class="header-actions">
+        <button id="settingsBtn" class="ghost-btn" type="button">Settings</button>
+        <div id="settingsPanel" class="settings-panel" aria-hidden="true">
+          <div class="settings-title">Run Settings</div>
+          <div class="settings-row">
+            <label for="numResultsInput">Number of results</label>
+            <input id="numResultsInput" class="settings-input" type="number" min="1" max="10" step="1" value="5">
+          </div>
+          <div class="settings-row">
+            <label for="verbositySelect">Verbosity</label>
+            <select id="verbositySelect" class="settings-select">
+              <option value="compact">Compact</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </div>
+          <div class="settings-note">These settings control how many ranked results come back and how terse or detailed each lens response should be.</div>
+        </div>
+      </div>
+    </div>
+    <p class="header-sub">Extracts consensus, attacks it through adversarial lenses, scores validity, runs a critic pass, and ranks defensible assumption attacks, contradictions, and fragility claims.</p>
   </header>
 
   <div class="input-card">
     <div class="input-label">Describe a problem</div>
-    <textarea id="inp" placeholder="What problem do you want non-obvious approaches for?"></textarea>
+    <textarea id="inp" placeholder="What assumption, decision, or strategy do you want attacked?"></textarea>
     <div class="input-footer">
       <div class="err-msg" id="err"></div>
       <button class="run-btn" id="runBtn" onclick="run()">Run analysis ↗</button>
@@ -434,6 +536,41 @@ button.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 <script>
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function sp(n,c){document.getElementById("p"+n).className="pipe-step "+c;}
+let selectedNumResults = 5;
+let selectedVerbosity = 'balanced';
+
+function clampResults(value){
+  const parsed = Number.parseInt(value, 10);
+  if(Number.isNaN(parsed)) return 5;
+  return Math.max(1, Math.min(parsed, 10));
+}
+
+function toggleSettings(forceOpen){
+  const panel = document.getElementById('settingsPanel');
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
+  panel.classList.toggle('open', shouldOpen);
+  panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const numResultsInput = document.getElementById('numResultsInput');
+  const verbositySelect = document.getElementById('verbositySelect');
+  settingsBtn.addEventListener('click', (event)=>{
+    event.stopPropagation();
+    toggleSettings();
+  });
+  settingsPanel.addEventListener('click', (event)=> event.stopPropagation());
+  document.addEventListener('click', ()=> toggleSettings(false));
+  numResultsInput.addEventListener('change', ()=>{
+    selectedNumResults = clampResults(numResultsInput.value);
+    numResultsInput.value = String(selectedNumResults);
+  });
+  verbositySelect.addEventListener('change', ()=>{
+    selectedVerbosity = verbositySelect.value || 'balanced';
+  });
+});
 
 async function run(){
   const problem = document.getElementById('inp').value.trim();
@@ -447,7 +584,15 @@ async function run(){
   try{
     sp(1,'loading');
     // Start SSE from backend
-    const resp = await fetch('/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({problem})});
+    const resp = await fetch('/analyze', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        problem,
+        num_results: selectedNumResults,
+        verbosity: selectedVerbosity
+      })
+    });
     if(!resp.body) throw new Error('No response body');
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
