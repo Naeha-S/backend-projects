@@ -792,7 +792,7 @@ def is_consensus_adjacent(consensus: str, approach: str) -> bool:
     return False
 
 
-def assess_divergence(consensus: str, approaches: list[dict], require_actionable: bool = True) -> dict:
+def assess_divergence(consensus: str, approaches: list[dict], require_actionable: bool = False) -> dict:
     issues = []
     adjacent = 0
     duplicate_pairs = 0
@@ -1123,7 +1123,7 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         s1 = None
         async for chunk in keep_alive(call_llm(
             client_cheap,
-            f"You are SARE, a strategic adversarial reasoning engine. Extract the hidden consensus doctrine most people, executives, or generic AI systems would assume in the domain '{domain_key}'. "
+            f"You are SARE, a strategic adversarial reasoning engine. Extract the hidden consensus frame most people, executives, or generic AI systems would assume in the domain '{domain_key}'. "
             "CRITICAL OUTPUT QUALITY RULES:\n"
             "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
             "2. NO TOKEN COLLAPSE. Never continue generation using momentum-based associative text drift. Do not stack abstract nouns endlessly.\n"
@@ -1136,7 +1136,7 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
             "Do not soften it with caveats, balancing language, or moral hedging. "
             "State the dominant prescription or premise in its bluntest plausible form, including the key hidden assumption if it is obvious. "
             "This is not the best answer; it is the socially legible answer that others will tend to defend. "
-            "Pressure score measures how strongly answers converge on that same default recommendation. "
+            "Pressure score measures how strongly answers converge on that same default framing. "
             "Respond ONLY with valid JSON, no markdown fences or extra text: "
             '{"consensus":"the obvious default answer",'
             '"pressure_score":0.0,'
@@ -1144,7 +1144,7 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
             f"Problem: {req.problem}\n"
             f"Selected domain: {domain_key}\n"
             f"Pressure mode: {pressure_mode}\n"
-            "Return the strongest default answer, not the balanced implementation advice that usually follows it.",
+            "Return the strongest default framing, not the balanced implementation advice that usually follows it.",
         )):
             if isinstance(chunk, str):
                 yield chunk
@@ -1221,16 +1221,17 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
                 "Expose what the narrative takes for granted, who benefits from that framing, and what it deliberately obscures. "
                 "Output an insight plus its implication, not an action plan."
             )
-            output_schema = '{"approaches":[{"lens":"...","approach":"assumption interrogation insight","reasoning":"its implication, beneficiaries, and what it obscures"}]}'
         else:
             type_instruction = (
-                "This is an operational/strategic question. Each lens must produce a concrete adversarial move, not just an observation."
+                "This is an operational/strategic question, but the output must still stay observational. "
+                "Diagnose where action would fail, what incentives distort the field, and what hidden dependency makes the system fragile. "
+                "Do not convert the answer into advice or implementation guidance."
             )
-            output_schema = '{"approaches":[{"lens":"...","approach":"specific adversarial strategy","reasoning":"assumption, contradiction, incentive, or fragility exploited"}]}'
+        output_schema = '{"approaches":[{"lens":"...","approach":"specific strategic observation","reasoning":"what it exposes, who benefits, and what second-order instability it reveals"}]}'
 
         s2 = None
         lens_system = (
-            "You are SARE: Strategic Adversarial Reasoning Engine. Generate 5 adversarial lenses that stress-test the consensus rather than politely commenting on it. "
+            "You are SARE: Strategic Adversarial Reasoning Engine. Generate 5 adversarial lenses that stress-test the consensus through diagnosis rather than advice. "
             "CRITICAL OUTPUT QUALITY RULES:\n"
             "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
             "2. NO TOKEN COLLAPSE. Never continue generation using momentum-based associative text drift. Do not stack abstract nouns endlessly.\n"
@@ -1239,27 +1240,27 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
             "5. MAXIMUM CLARITY OVER MAXIMUM COMPLEXITY. The goal is sharpness and strategic insight, not sounding philosophical or academic.\n"
             "6. PRIORITIZE INSIGHT DENSITY. Each lens should feel compact, memorable, and human-written. Avoid filler and excessive explanation.\n"
             "7. HARD FAILURE CONDITION: If a generated sentence cannot be paraphrased into a clear strategic observation, it is invalid and must be rewritten.\n"
-            "Approaches that could appear in a balanced essay are rejected. "
+            "Approaches that could appear in a balanced essay, a product brief, or a consultancy memo are rejected. "
             f"Use these domain framings for domain '{domain_key}':\n{lens_descr}\n"
             f"{pattern_hint}\n"
             f"{verbosity_instruction(verbosity)} "
             f"Pressure mode '{pressure_mode}': {pressure_instruction} "
             f"{type_instruction} "
-            "Each lens must expose one of the following: a false assumption, a systemic contradiction, a hidden incentive, a fragility, an institutional tension, or a second-order consequence. "
-            "Do not generate startup ideas, implementation plans, policy blueprints, motivational advice, or generic recommendations. "
-            "Reject anything that sounds like polished consultant advice, innovation brainstorming, or safe executive synthesis. "
+            "Each lens must expose one of the following: hidden incentives, structural contradictions, fragile dependencies, coordination failures, market conditioning, narrative asymmetries, or long-term strategic traps. "
+            "Do not generate product advice, business recommendations, optimization suggestions, implementation guidance, startup ideas, policy blueprints, motivational advice, or generic recommendations. "
+            "Reject anything that sounds like polished consultant advice, innovation brainstorming, safe executive synthesis, or how-to guidance. "
             "The output should feel strategically uncomfortable, compressed, insight-dense, and hard to forget. "
             "The 5 lenses must come from genuinely different reasoning structures: incentives, fragility, coordination, power, narrative, dependency, governance, psychology, economic structure, or second-order systems dynamics. "
             "At least one lens may partially defend the consensus conditionally, at least one should attack it directly, and at least one should reframe the premise entirely. Avoid artificial agreement. "
             + (
-                "For each lens: approach is the insight. reasoning states its implication, who benefits from the framing, what the framing obscures, and what second-order instability follows if the consensus spreads. "
+                "For each lens: approach is the observation. reasoning states its implication, who benefits from the framing, what the framing obscures, and what second-order instability follows if the consensus spreads. "
                 if interrogation_mode else
-                "For each lens: approach is a strategic adversarial interpretation or pressure move, not an implementation plan. "
-                "Avoid verbs like create, implement, develop, establish, design, or propose unless they are unavoidable. "
-                "Before finalizing each approach, check: (a) does it diverge uncomfortably from the consensus — not just modify it? "
-                "(b) does it expose a structural tension, contradiction, or fragility rather than merely offering a fix? "
+                "For each lens: approach is a strategic observation, not a recommendation or action plan. "
+                "Avoid verbs like create, implement, develop, establish, design, propose, launch, or optimize unless they are unavoidable. "
+                "Before finalizing each approach, check: (a) does it expose a hidden incentive, structural contradiction, fragile dependency, coordination failure, or narrative asymmetry? "
+                "(b) does it resist turning into advice? "
                 "(c) would an expert feel this changed the way the problem is framed? If any answer is no, rewrite. "
-                "For each lens: approach is the compressed strategic interpretation. reasoning is why that move bites and what assumption, incentive, contradiction, fragility, or second-order effect it exposes. "
+                "For each lens: approach is the compressed strategic observation. reasoning is why that observation bites and what assumption, incentive, contradiction, fragility, or second-order effect it exposes. "
             )
             + "Respond ONLY with valid JSON, no markdown: "
             + output_schema
@@ -1319,7 +1320,7 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
                 ),
             }]
 
-        divergence_check = assess_divergence(s1.get("consensus", ""), approaches, require_actionable=not interrogation_mode)
+        divergence_check = assess_divergence(s1.get("consensus", ""), approaches, require_actionable=False)
         if not divergence_check["ok"]:
             retry_feedback = ", ".join(divergence_check["issues"]) or "insufficient divergence"
             retry_user = (
