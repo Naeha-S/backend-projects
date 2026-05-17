@@ -1,7 +1,14 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
 from settings import settings
+
+try:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import DeclarativeBase, sessionmaker
+except ModuleNotFoundError:  # pragma: no cover - optional runtime dependency
+    create_engine = None
+    sessionmaker = None
+
+    class DeclarativeBase:
+        metadata = None
 
 
 class Base(DeclarativeBase):
@@ -11,7 +18,7 @@ class Base(DeclarativeBase):
 engine = None
 SessionLocal = None
 
-if settings.database_url:
+if settings.database_url and create_engine and sessionmaker:
     connect_args = {}
     if settings.database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False

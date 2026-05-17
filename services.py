@@ -1,10 +1,21 @@
 from __future__ import annotations
 
-import boto3
-import redis
-from rq import Queue
-
 from settings import settings
+
+try:
+    import boto3
+except ModuleNotFoundError:  # pragma: no cover - optional runtime dependency
+    boto3 = None
+
+try:
+    import redis
+except ModuleNotFoundError:  # pragma: no cover - optional runtime dependency
+    redis = None
+
+try:
+    from rq import Queue
+except ModuleNotFoundError:  # pragma: no cover - optional runtime dependency
+    Queue = None
 
 
 def redis_enabled() -> bool:
@@ -12,6 +23,8 @@ def redis_enabled() -> bool:
 
 
 def get_redis_client():
+    if not redis or not settings.redis_url:
+        return None
     if settings.redis_url:
         return redis.from_url(settings.redis_url, decode_responses=True)
     return None
@@ -19,7 +32,7 @@ def get_redis_client():
 
 def get_job_queue():
     client = get_redis_client()
-    if client is None:
+    if client is None or Queue is None:
         return None
     return Queue(settings.job_queue_name, connection=client)
 
@@ -29,7 +42,7 @@ def r2_enabled() -> bool:
 
 
 def get_r2_client():
-    if not r2_enabled():
+    if not r2_enabled() or boto3 is None:
         return None
     return boto3.client(
         "s3",
