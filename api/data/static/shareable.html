@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shared Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    const saved = localStorage.getItem('afe-theme');
+    document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+  } catch (_) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+<style>
+* { box-sizing: border-box; }
+:root {
+  --bg: #000000;
+  --surface: #121414;
+  --surface2: #1f2020;
+  --border: #3b494c;
+  --border2: #3b494c;
+  --text: #e3e2e2;
+  --text2: #bac9cc;
+  --text3: #666666;
+  --blue: #00e5ff;
+  --green: #4ade80;
+  --amber: #ffab00;
+  --red: #ff4d4d;
+}
+html[data-theme="light"] {
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface2: #e8eef5;
+  --border: #cbd5e1;
+  --border2: #cbd5e1;
+  --text: #0f172a;
+  --text2: #334155;
+  --text3: #64748b;
+  --blue: #1351aa;
+  --green: #15803d;
+  --amber: #b45309;
+  --red: #dc2626;
+}
+html, body { margin: 0; }
+* { border-radius: 0 !important; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "DM Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  background-size: 32px 32px;
+  background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+  pointer-events: none;
+  z-index: 1;
+}
+.scanlines {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+              linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  background-size: 100% 4px, 3px 100%;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.15;
+}
+html[data-theme="light"] .bg-grid {
+  background-image: linear-gradient(to right, rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+}
+html[data-theme="light"] .scanlines {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 50%, rgba(15, 23, 42, 0.03) 50%),
+              linear-gradient(90deg, rgba(19, 81, 170, 0.03), rgba(15, 23, 42, 0.02), rgba(19, 81, 170, 0.03));
+  opacity: 0.09;
+}
+.global-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 0;
+  z-index: 9999;
+}
+.global-sidebar .logo {
+  padding: 0 2rem;
+  font-family: "DM Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  margin-bottom: 4rem;
+  color: var(--blue);
+  font-weight: bold;
+}
+.global-sidebar .nav-section {
+  padding: 0 2rem 1rem;
+  font-family: "DM Mono", monospace;
+  font-size: 0.55rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+.global-sidebar .nav-links { display: flex; flex-direction: column; flex: 1; }
+.global-sidebar .nav-link {
+  padding: 1rem 2rem;
+  text-decoration: none;
+  color: var(--text2);
+  font-family: "DM Mono", monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-left: 2px solid transparent;
+  transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.global-sidebar .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+.global-sidebar .nav-link.active { color: var(--blue); border-left-color: var(--blue); background: rgba(0, 229, 255, 0.05); }
+.global-sidebar .nav-num { opacity: 0.4; font-size: 0.6rem; }
+body.has-global-sidebar { padding-left: 240px; }
+.theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  min-width: 126px;
+  padding: 0.7rem 1rem;
+  font-family: "DM Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text);
+  backdrop-filter: blur(8px);
+}
+.theme-toggle:hover { transform: translateY(-1px); background: rgba(255,255,255,0.08); }
+html[data-theme="light"] .theme-toggle { background: rgba(255,255,255,0.8); }
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 32px 20px 56px;
+}
+.eyebrow, .label, .tiny, .pill, .meta {
+  font-family: "DM Mono", monospace;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.title {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1;
+  text-transform: uppercase;
+}
+.title span { color: var(--blue); }
+.sub {
+  color: var(--text2);
+  margin: 12px 0 0;
+  font-size: 14px;
+  max-width: 760px;
+}
+.stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+.label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+.muted { color: var(--text2); font-size: 14px; line-height: 1.7; }
+.hero-band {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pill {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  font-size: 11px;
+  color: var(--text2);
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.summary-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+.summary-value {
+  display: block;
+  font-family: "Syne", sans-serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1;
+  margin-top: 8px;
+}
+.approach-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-top: 12px;
+}
+.approach-card.top { border-color: rgba(74, 222, 128, 0.25); }
+.approach-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.score { text-align: right; min-width: 84px; }
+.num {
+  display: block;
+  font-family: "Syne", sans-serif;
+  font-size: 24px;
+  line-height: 1;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.detail-card {
+  background: #111;
+  border: 1px solid var(--border);
+  padding: 12px;
+}
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.warn { background: rgba(251,191,36,0.1); color: #fcd34d; border: 1px solid rgba(251,191,36,0.15); }
+.fail { background: rgba(248,113,113,0.1); color: #fca5a5; border: 1px solid rgba(248,113,113,0.15); }
+@media (max-width: 768px) {
+  body.has-global-sidebar { padding-left: 0; }
+  .global-sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0;
+  }
+  .global-sidebar .logo { margin-bottom: 1rem; }
+  .summary-grid, .detail-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body class="has-global-sidebar">
+
+<div class="bg-grid"></div>
+<div class="scanlines"></div>
+<button id="themeToggle" class="theme-toggle" type="button">Light Mode</button>
+
+<aside class="global-sidebar">
+  <div class="logo">AFE // STRAT_INTEL</div>
+  <div class="nav-links">
+    <div class="nav-section">Global Network</div>
+    <a href="/" class="nav-link">
+      <span class="nav-num">SYS</span> Engine Core
+    </a>
+    <a href="/static/dashboard.html" class="nav-link">
+      <span class="nav-num">DSH</span> Dashboard
+    </a>
+    <a href="/static/patterns.html" class="nav-link">
+      <span class="nav-num">PTR</span> Patterns
+    </a>
+    <a href="/static/shareable.html" class="nav-link active">
+      <span class="nav-num">SHR</span> Shareable
+    </a>
+  </div>
+</aside>
+
+<div class="wrap">
+  <div class="eyebrow">ADVERSARIAL FRAMING ENGINE</div>
+  <div class="hero-band">
+    <div>
+      <h1 class="title">Shared <span>Analysis</span></h1>
+      <p class="sub">Read-only public view of a saved adversarial framing result. The layout and palette intentionally mirror the rest of the engine UI.</p>
+    </div>
+  </div>
+
+  <div id="app" class="stack"></div>
+</div>
+
+<script id="analysis-data" type="application/json">__ANALYSIS_JSON__</script>
+<script>
+const THEME_KEY = 'afe-theme';
+
+function applyTheme(theme) {
+  const nextTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', nextTheme);
+  const toggle = document.getElementById('themeToggle');
+  if (toggle) toggle.textContent = nextTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
+  try { localStorage.setItem(THEME_KEY, nextTheme); } catch (_) {}
+}
+
+function initThemeToggle() {
+  let savedTheme = 'dark';
+  try { savedTheme = localStorage.getItem(THEME_KEY) || 'dark'; } catch (_) {}
+  applyTheme(savedTheme);
+  const toggle = document.getElementById('themeToggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+  }
+}
+
+function esc(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function fmtDateTime(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function renderApproach(item, index) {
+  const weaknesses = Array.isArray(item?.critique?.weaknesses) ? item.critique.weaknesses : [];
+  const failures = Array.isArray(item?.critique?.failure_modes) ? item.critique.failure_modes : [];
+  return `
+    <article class="approach-card ${index === 0 ? 'top' : ''}">
+      <div class="approach-top">
+        <div>
+          <div class="tiny">${index === 0 ? 'Top approach' : 'Alternative'}</div>
+          <h3 style="margin:4px 0 6px; font-family: 'Syne', sans-serif; font-size: clamp(1.25rem, 2vw, 1.75rem); text-transform: uppercase; line-height: 1.05;">${esc(item?.approach || '')}</h3>
+          <div class="pill">${esc(item?.lens || '')}</div>
+        </div>
+        <div class="score">
+          <span class="tiny">Composite</span>
+          <span class="num">${item?.composite != null ? esc(Number(item.composite).toFixed(3)) : '-'}</span>
+        </div>
+      </div>
+      <p class="muted">${esc(item?.reasoning || '')}</p>
+      <div class="detail-grid">
+        <div class="detail-card"><div class="label">Novelty</div><div>${esc(item?.scores?.novelty ?? '-')}</div></div>
+        <div class="detail-card"><div class="label">Feasibility</div><div>${esc(item?.scores?.feasibility ?? '-')}</div></div>
+        <div class="detail-card"><div class="label">Risk</div><div>${esc(item?.scores?.risk ?? '-')}</div></div>
+        <div class="detail-card"><div class="label">Expected impact</div><div>${esc(item?.scores?.expected_impact ?? '-')}</div></div>
+      </div>
+      <div class="tiny" style="margin-top:12px;">Weaknesses</div>
+      <div class="tag-row">${weaknesses.length ? weaknesses.map(x => `<span class="tag warn">${esc(x)}</span>`).join('') : '<span class="muted">None captured.</span>'}</div>
+      <div class="tiny" style="margin-top:12px;">Failure modes</div>
+      <div class="tag-row">${failures.length ? failures.map(x => `<span class="tag fail">${esc(x)}</span>`).join('') : '<span class="muted">None captured.</span>'}</div>
+    </article>
+  `;
+}
+
+initThemeToggle();
+
+const data = JSON.parse(document.getElementById('analysis-data').textContent);
+const ranked = Array.isArray(data.ranked) ? data.ranked : [];
+const app = document.getElementById('app');
+
+app.innerHTML = `
+  <section class="panel">
+    <div class="label">Problem</div>
+    <div style="font-family: 'Syne', sans-serif; font-size: clamp(1.5rem, 3vw, 2.5rem); line-height: 1.1; text-transform: uppercase;">${esc(data.problem || '')}</div>
+  </section>
+
+  <section class="summary-grid">
+    <div class="summary-card">
+      <div class="label">Domain</div>
+      <div class="pill">${esc(data.domain || 'general')}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Created</div>
+      <div class="summary-value">${esc(fmtDateTime(data.created_at))}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Consensus pressure</div>
+      <div class="summary-value" style="font-size: clamp(1.5rem, 3vw, 2.25rem);">${esc(data.consensus && data.consensus.pressure_label ? data.consensus.pressure_label : '-')}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Ranked outputs</div>
+      <div class="summary-value">${ranked.length}</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="label">Consensus</div>
+    <div class="muted">${esc(data.consensus && data.consensus.consensus ? data.consensus.consensus : '')}</div>
+  </section>
+
+  <section class="panel">
+    <div class="label">Ranked approaches</div>
+    ${ranked.length ? ranked.map((item, index) => renderApproach(item, index)).join('') : '<div class="muted" style="margin-top:12px;">No ranked approaches were included in the shared payload.</div>'}
+  </section>
+`;
+</script>
+</body>
+</html>

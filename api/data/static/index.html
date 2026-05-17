@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADVERSARIAL FRAMING ENGINE // STRAT_INTEL_v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@100;400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Strategic Intelligence Design System */
+  --bg: #000000;
+  --surface: #121414;
+  --surface-bright: #1f2020;
+  --border: #3b494c;
+  --primary: #00e5ff; /* Electric Blue */
+  --secondary: #ffab00; /* Tactical Amber */
+  --text-primary: #e3e2e2;
+  --text-secondary: #bac9cc;
+  --text-muted: #666666;
+  --accent-glow: rgba(0, 229, 255, 0.3);
+  --danger: #ff4d4d;
+  
+  --font-display: 'Anton', sans-serif;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; cursor: crosshair; }
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* Tactical Overlays */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  background-size: 32px 32px;
+  background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+  pointer-events: none;
+  z-index: 1;
+}
+.scanlines {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+              linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  background-size: 100% 4px, 3px 100%;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.15;
+}
+
+/* Layout */
+.app-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  height: 100vh;
+  position: relative;
+  z-index: 10;
+}
+
+/* Nav Rail */
+.nav-rail {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: 2rem 0;
+}
+.logo {
+  padding: 0 2rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  margin-bottom: 4rem;
+  color: var(--primary);
+  font-weight: bold;
+}
+.rail-links {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.rail-link {
+  padding: 1rem 2rem;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-left: 2px solid transparent;
+  transition: var(--transition);
+}
+.rail-link:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.02);
+}
+.rail-link.active {
+  color: var(--primary);
+  border-left-color: var(--primary);
+  background: rgba(0, 229, 255, 0.05);
+}
+.rail-num { opacity: 0.4; font-size: 0.6rem; }
+
+/* Content Area */
+.content-area {
+  overflow-y: auto;
+  padding: 4rem 10%;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Hero */
+.hero-metadata {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 2rem;
+}
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 8vw, 8rem);
+  line-height: 0.85;
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+}
+.hero-title span { color: var(--primary); text-shadow: 0 0 20px var(--accent-glow); }
+.hero-desc {
+  border-left: 2px solid var(--primary);
+  padding-left: 1.5rem;
+  max-width: 600px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 4rem;
+}
+
+/* Modular Cards */
+.intel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 2rem;
+  position: relative;
+}
+.intel-card-header {
+  background: var(--border);
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--bg);
+  font-weight: bold;
+}
+.intel-card-body { padding: 2rem; }
+
+/* Terminal Input */
+.terminal-input-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  display: flex;
+  gap: 1.5rem;
+}
+.terminal-prompt { color: var(--primary); font-family: var(--font-mono); font-weight: bold; }
+.terminal-input-wrap textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  outline: none;
+  resize: none;
+  min-height: 120px;
+}
+.terminal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+.action-btn {
+  background: var(--primary);
+  color: var(--bg);
+  border: none;
+  padding: 0.75rem 2rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  letter-spacing: 0.05em;
+  transition: var(--transition);
+}
+.action-btn:hover { background: #fff; transform: skewX(-5deg); }
+.action-btn:disabled { background: var(--text-muted); }
+
+/* Pipeline */
+.pipeline-viz {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3rem;
+  padding: 1rem;
+  background: rgba(255,255,255,0.02);
+}
+.pipe-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+.node-status { width: 12px; height: 12px; border: 1px solid var(--border); }
+.pipe-node.active { color: var(--primary); }
+.pipe-node.active .node-status { border-color: var(--primary); background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+.pipe-node.loading .node-status { animation: pulse 1s infinite; background: var(--primary); }
+
+@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+
+/* Right Panel */
+.side-panel {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+.panel-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.panel-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
+.panel-value { font-family: var(--font-mono); font-size: 1.1rem; color: var(--text-primary); }
+.status-pill { display: flex; align-items: center; gap: 8px; color: var(--primary); }
+.status-pill::before { content: ''; width: 6px; height: 6px; background: var(--primary); border-radius: 50%; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="scanlines"></div>
+
+<div class="app-layout">
+  <aside class="nav-rail">
+    <div class="logo">AFE // STRAT_INTEL</div>
+    <nav class="rail-links">
+      <div style="padding: 0 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Local Operations</div>
+      <a href="javascript:void(0)" class="rail-link active" onclick="switchTab('manifesto')">
+        <span class="rail-num">01</span> Manifesto
+      </a>
+      <a href="javascript:void(0)" class="rail-link" onclick="switchTab('system')">
+        <span class="rail-num">02</span> System
+      </a>
+      <a href="javascript:void(0)" class="rail-link" onclick="switchTab('pipeline')">
+        <span class="rail-num">03</span> Pipeline
+      </a>
+      <a href="javascript:void(0)" class="rail-link" onclick="switchTab('analysis')">
+        <span class="rail-num">04</span> Analysis
+      </a>
+      <a href="javascript:void(0)" class="rail-link" onclick="switchTab('outputs')">
+        <span class="rail-num">05</span> Outputs
+      </a>
+      <a href="javascript:void(0)" class="rail-link" onclick="switchTab('logs')">
+        <span class="rail-num">06</span> Logs
+      </a>
+
+      <div style="padding: 2rem 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Global Network</div>
+      <a href="/" class="rail-link global active" style="border-left-color: transparent; background: transparent; color: var(--primary);">
+        <span class="rail-num">SYS</span> Engine Core
+      </a>
+      <a href="/static/dashboard.html" class="rail-link global">
+        <span class="rail-num">DSH</span> Dashboard
+      </a>
+      <a href="/static/patterns.html" class="rail-link global">
+        <span class="rail-num">PTR</span> Patterns
+      </a>
+      <a href="/static/shareable.html" class="rail-link global">
+        <span class="rail-num">SHR</span> Shareable
+      </a>
+    </nav>
+  </aside>
+
+  <main class="content-area">
+    <!-- Manifesto Tab -->
+    <div id="manifesto" class="tab-content active">
+      <div class="hero-metadata">
+        <span>COORD: 52.5200° N, 13.4050° E</span>
+        <span>NODE: [EUROPE_CENTRAL_01]</span>
+        <span>VER: 1.0.42-X</span>
+        <span>AUTH: ADMIN_LEVEL_4</span>
+      </div>
+      <h1 class="hero-title">FRAMING<br><span>ENGINE</span></h1>
+      <p class="hero-desc">
+        [ SYSTEM_OVERVIEW ] Advanced AI adversarial reasoning environment. Engineered to stress-test strategic assumptions through high-fidelity intellectual attrition. Designed for high-stakes decision validation.
+      </p>
+      
+      <div class="intel-card" id="intelProtocolsCard">
+        <div class="intel-card-header">
+          <span>INTEL_PROTOCOLS // CORE_LOGIC</span>
+          <span>REF: [001-ALPHA]</span>
+        </div>
+        <div class="intel-card-body">
+          <p style="color: var(--text-secondary); font-size: 0.9rem; letter-spacing: 0.02em;">
+            The Framing Engine utilizes a multi-stage reasoning pipeline to identify, isolate, and attack the core assumptions of any strategic proposal. It is designed to expose fragility in consensus-based thinking by applying adversarial pressure across 12 distinct logical lenses.
+          </p>
+          <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+            <div style="font-family: var(--font-mono); font-size: 0.6rem; color: var(--primary);">[ STATUS: STABLE ]</div>
+            <div style="font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted);">[ UPTIME: 142H ]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="intel-card" id="manifestoUsageCard" style="display: none;">
+        <div class="intel-card-header">
+          <span>OPERATIONAL_TELEMETRY // COMPUTATIONAL_CYCLES</span>
+          <span>REF: [LIMIT-SHIELD-V1]</span>
+        </div>
+        <div class="intel-card-body">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div>
+              <div class="mono-label" style="font-size: 0.6rem; color: var(--text-muted);">Active Tier</div>
+              <div id="manifestoTier" style="font-family: var(--font-display); font-size: 1.8rem; color: var(--primary); margin-top: 0.25rem;">FREE</div>
+            </div>
+            <div>
+              <div class="mono-label" style="font-size: 0.6rem; color: var(--text-muted);">Cycles Today</div>
+              <div id="manifestoCalls" style="font-family: var(--font-display); font-size: 1.8rem; color: var(--text-primary); margin-top: 0.25rem;">0</div>
+            </div>
+            <div>
+              <div class="mono-label" style="font-size: 0.6rem; color: var(--text-muted);">Total Queries</div>
+              <div id="manifestoTotal" style="font-family: var(--font-display); font-size: 1.8rem; color: var(--text-primary); margin-top: 0.25rem;">0</div>
+            </div>
+          </div>
+          <div class="progress-bar" style="height: 6px; background: var(--surface-bright); border: 1px solid var(--border); width: 100%;"><div id="manifestoProgress" class="progress-fill" style="height: 100%; background: var(--primary); width: 0%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analysis Tab (The main working area) -->
+    <div id="analysis" class="tab-content">
+      <div class="intel-card" style="border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);">
+        <div class="intel-card-header" style="background: var(--primary);">
+          <span style="color: var(--bg)">COMMAND_SEQUENCE_INPUT</span>
+          <span style="color: var(--bg)">[WAITING_FOR_VECTOR]</span>
+        </div>
+        <div class="intel-card-body">
+          <div class="terminal-input-wrap" style="border-color: var(--primary);">
+            <div class="terminal-prompt">></div>
+            <textarea id="inp" placeholder="Initialize reasoning target... (e.g. 'Remote work reduces productivity')"></textarea>
+          </div>
+          <div class="terminal-footer">
+            <div style="display: flex; gap: 1rem;">
+              <select id="verbositySelect" style="background: transparent; border: 1px solid var(--border); color: var(--primary); font-family: var(--font-mono); font-size: 0.7rem; padding: 0.4rem; outline: none;">
+                <option value="compact">MODE: COMPACT</option>
+                <option value="balanced" selected>MODE: BALANCED</option>
+                <option value="detailed">MODE: DETAILED</option>
+              </select>
+              <select id="numResultsSelect" style="background: transparent; border: 1px solid var(--border); color: var(--primary); font-family: var(--font-mono); font-size: 0.7rem; padding: 0.4rem; outline: none;">
+                <option value="3">YIELD: 03</option>
+                <option value="5" selected>YIELD: 05</option>
+                <option value="10">YIELD: 10</option>
+              </select>
+            </div>
+            <button class="action-btn" id="runBtn" onclick="run()">EXECUTE_ATTRITION</button>
+          </div>
+          <div id="err" style="color: var(--secondary); font-family: var(--font-mono); font-size: 0.7rem; margin-top: 1rem;"></div>
+        </div>
+      </div>
+
+      <div id="pw" class="pipeline-viz" style="display: none;">
+        <div class="pipe-node" id="p1"><div class="node-status"></div><span>CONSENSUS</span></div>
+        <div class="pipe-node" id="p2"><div class="node-status"></div><span>LENSES</span></div>
+        <div class="pipe-node" id="p3"><div class="node-status"></div><span>VALIDITY</span></div>
+        <div class="pipe-node" id="p4"><div class="node-status"></div><span>CRITIC</span></div>
+        <div class="pipe-node" id="p5"><div class="node-status"></div><span>RANKED</span></div>
+      </div>
+
+      <div id="out"></div>
+    </div>
+
+    <!-- Placeholder Tabs -->
+    <div id="system" class="tab-content">
+      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">SYSTEM_STATE</h2>
+      <div class="intel-card">
+        <div class="intel-card-body">
+          <pre style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--primary);">
+> CHECKING_MODULES...
+> CORE_INFERENCE: STABLE
+> ADVERSARIAL_ROUTER: ACTIVE
+> MEMORY_STATE: 1.2GB/16GB
+> UPTIME: 142:22:01
+> API_AUTH: <button id="genKeyBtn" class="action-btn" style="font-size: 0.7rem; padding: 0.2rem 1rem; margin-bottom: 0;">GENERATE_KEY</button> <span id="keyDisplay" style="color: var(--secondary);"></span>
+          </pre>
+          <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+            <div class="mono-label" style="margin-bottom: 0.5rem; color: var(--text-muted);">ACTIVE_SIGNATURE_KEY</div>
+            <div style="display: flex; gap: 1rem;">
+              <input id="manualKeyInput" type="password" placeholder="Provide signature key (afe-...)" style="flex: 1; padding: 0.5rem 1rem; margin-bottom: 0; font-size: 0.85rem; height: 38px; background: transparent; border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); outline: none;">
+              <button id="saveKeyBtn" class="action-btn" style="font-size: 0.9rem; padding: 0.5rem 1.5rem; height: 38px;">Save Signature</button>
+            </div>
+            <div id="saveStatus" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin-top: 0.5rem;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="pipeline" class="tab-content">
+      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">PIPELINE_ARCHITECTURE</h2>
+      <p style="color: var(--text-secondary);">Visualization of the adversarial logic gates currently under construction.</p>
+    </div>
+
+    <div id="outputs" class="tab-content">
+      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">ARCHIVED_OUTPUTS</h2>
+      <p style="color: var(--text-secondary);">Historical analysis results will be indexed here.</p>
+    </div>
+
+    <div id="logs" class="tab-content">
+      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">SYSTEM_LOGS</h2>
+      <div style="background: #111; padding: 1.5rem; font-family: var(--font-mono); font-size: 0.7rem; color: #555;">
+        <p>[21:15:11] INF: Connection established with HF_ROUTER</p>
+        <p>[21:15:12] INF: Loading model: adversarial-framing-v1</p>
+        <p>[21:30:04] WRN: Latency spike detected on node_03</p>
+        <p>[21:33:43] INF: UI Refresh sequence initiated</p>
+      </div>
+    </div>
+
+  </main>
+
+  <aside class="side-panel">
+    <div class="panel-section">
+      <span class="panel-label">SYS_STATUS</span>
+      <div class="status-pill">SYNCHRONIZED</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">INFERENCE_MODE</span>
+      <div class="panel-value">ADVERSARIAL</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">ROUTING_NODE</span>
+      <div class="panel-value">HF_EUROPE_02</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">SESSION_ID</span>
+      <div class="panel-value" style="font-size: 0.7rem;">7619-7031-9534-8828</div>
+    </div>
+    <div class="panel-section" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <span class="panel-label">SECURITY_CLEARANCE</span>
+      <div class="panel-value" style="color: var(--secondary);">LEVEL_4_ALPHA</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+function switchTab(tabId) {
+  // Update Links
+  document.querySelectorAll('.rail-link:not(.global)').forEach(link => {
+    link.classList.remove('active');
+    if (link.textContent.toLowerCase().includes(tabId)) link.classList.add('active');
+  });
+  // Update Content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.getElementById(tabId).classList.add('active');
+}
+
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+async function updateActualUsage() {
+  const key = localStorage.getItem('afe-api-key');
+  const oldCard = document.getElementById('intelProtocolsCard');
+  const newCard = document.getElementById('manifestoUsageCard');
+  
+  if (!key) {
+    if (oldCard) oldCard.style.display = 'block';
+    if (newCard) newCard.style.display = 'none';
+    return;
+  }
+  
+  try {
+    const res = await fetch('/v1/usage', { headers: { 'x-api-key': key } });
+    if (!res.ok) throw new Error();
+    const usage = await res.json();
+    
+    document.getElementById('manifestoTier').textContent = (usage.tier || 'FREE').toUpperCase();
+    document.getElementById('manifestoCalls').textContent = usage.calls_today ?? 0;
+    document.getElementById('manifestoTotal').textContent = usage.calls_total ?? 0;
+    
+    const used = usage.calls_today || 0;
+    const limit = usage.limit_today || 1;
+    const pct = Math.min(100, (used / limit) * 100);
+    document.getElementById('manifestoProgress').style.width = pct + '%';
+    
+    if (oldCard) oldCard.style.display = 'none';
+    if (newCard) newCard.style.display = 'block';
+    
+    const input = document.getElementById('manualKeyInput');
+    if (input) input.value = key;
+  } catch (e) {
+    if (oldCard) oldCard.style.display = 'block';
+    if (newCard) newCard.style.display = 'none';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramKey = urlParams.get('key');
+  if (paramKey) {
+    localStorage.setItem('afe-api-key', paramKey);
+  }
+  
+  updateActualUsage();
+
+  const genKeyBtn = document.getElementById('genKeyBtn');
+  if (genKeyBtn) {
+    genKeyBtn.addEventListener('click', async () => {
+      genKeyBtn.disabled = true;
+      genKeyBtn.textContent = 'GENERATING...';
+      try {
+        const r = await fetch('/v1/keys', {method: 'POST'});
+        const j = await r.json();
+        document.getElementById('keyDisplay').textContent = ' [' + (j.key || 'ERR') + '] (AUTO_SAVED)';
+        genKeyBtn.textContent = 'KEY_ISSUED';
+        
+        if (j.key) {
+          localStorage.setItem('afe-api-key', j.key);
+          updateActualUsage();
+        }
+      } catch(e) {
+        document.getElementById('keyDisplay').textContent = ' [ERR: ' + e.message + ']';
+        genKeyBtn.textContent = 'GENERATE_KEY';
+        genKeyBtn.disabled = false;
+      }
+    });
+  }
+
+  const saveKeyBtn = document.getElementById('saveKeyBtn');
+  if (saveKeyBtn) {
+    saveKeyBtn.addEventListener('click', () => {
+      const input = document.getElementById('manualKeyInput');
+      const status = document.getElementById('saveStatus');
+      const val = input.value.trim();
+      if (!val) {
+        localStorage.removeItem('afe-api-key');
+        status.textContent = 'Signature reset.';
+        updateActualUsage();
+      } else {
+        localStorage.setItem('afe-api-key', val);
+        status.textContent = 'Signature key saved successfully.';
+        updateActualUsage();
+      }
+      setTimeout(() => status.textContent = '', 3000);
+    });
+  }
+});
+
+function setStep(n, state) {
+  const el = document.getElementById("p"+n);
+  if(!el) return;
+  el.className = "pipe-node " + state;
+}
+
+async function run(){
+  const problem = document.getElementById('inp').value.trim();
+  if(!problem){
+     document.getElementById('err').textContent='ERROR: Target vector undefined.';
+     return;
+  }
+  document.getElementById('err').textContent='';
+  
+  const btn = document.getElementById('runBtn'); 
+  btn.disabled = true; 
+  btn.textContent = 'RUNNING_ATTRITION...';
+  
+  document.getElementById('pw').style.display = 'flex';
+  document.getElementById('out').innerHTML = '';
+  
+  ['p1','p2','p3','p4','p5'].forEach(id => document.getElementById(id).className='pipe-node');
+  
+  const numResults = parseInt(document.getElementById('numResultsSelect').value, 10);
+  const verbosity = document.getElementById('verbositySelect').value;
+
+  try{
+    setStep(1, 'loading');
+    
+    const key = localStorage.getItem('afe-api-key');
+    const url = key ? '/v1/analyze' : '/analyze';
+    const headers = { 'Content-Type': 'application/json' };
+    if (key) headers['x-api-key'] = key;
+    
+    const resp = await fetch(url, {
+      method:'POST',
+      headers: headers,
+      body: JSON.stringify({
+        problem,
+        num_results: numResults,
+        verbosity: verbosity
+      })
+    });
+    
+    if(!resp.body) throw new Error('ERR: Stream handshake failed.');
+    
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    const out = document.getElementById('out');
+
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += decoder.decode(value, {stream:true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      
+      for(const part of parts){
+        if(!part.trim()) continue;
+        const line = part.replace(/^data: /m,'').trim();
+        let payload;
+        try{ payload = JSON.parse(line); }catch(e){ continue; }
+        
+        if(payload.step){
+          for(let i=1; i<payload.step; i++) setStep(i, 'active');
+          setStep(payload.step, payload.status === 'loading' ? 'loading' : 'active');
+        }
+        
+        if(payload.type === 'complete'){
+          ['p1','p2','p3','p4','p5'].forEach(id => document.getElementById(id).className='pipe-node active');
+          
+          const res = payload.data;
+          updateActualUsage();
+          
+          let html = `
+          <div class="intel-card" style="border-color: var(--primary);">
+            <div class="intel-card-header" style="background: var(--primary);">
+               <span>CONSENSUS_BASELINE</span>
+               <span>VERIFIED</span>
+            </div>
+            <div class="intel-card-body">
+               <p style="font-size: 1.1rem; line-height: 1.8;">${esc(res.consensus.consensus)}</p>
+            </div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin: 2rem 0 1rem; letter-spacing: 0.2em;">> ADVERSARIAL_VECTORS_DETECTED</div>
+          `;
+          
+          res.ranked.forEach((r, idx) => {
+            const color = idx === 0 ? 'var(--secondary)' : 'var(--primary)';
+            html += `
+            <div class="intel-card" style="border-color: ${color};">
+              <div class="intel-card-header" style="background: ${color};">
+                 <span>VECTOR_${idx + 1}</span>
+                 <span>${idx === 0 ? 'CRITICAL' : 'ELEVATED'}</span>
+              </div>
+              <div class="intel-card-body">
+                <h3 style="font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; color: ${color};">${esc(r.approach)}</h3>
+                <p style="color: var(--text-secondary); font-size: 0.95rem;">${esc(r.reasoning||'')}</p>
+              </div>
+            </div>`;
+          });
+          
+          out.innerHTML = html;
+        }
+        
+        if(payload.type === 'error'){
+          document.getElementById('err').textContent = 'ERR: ' + payload.message;
+        }
+      }
+    }
+
+  }catch(e){ 
+    document.getElementById('err').textContent = 'ERR: ' + e.message;
+  }
+  
+  btn.disabled = false; 
+  btn.textContent = 'INITIATE SEQUENCE';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard // STRAT_INTEL_v1.0</title>
+<link rel="stylesheet" href="/static/modernist.css?v=2.0">
+<style>
+  .metric-box { padding: 2rem; transition: background 0.3s linear; }
+  .metric-box:hover { background: rgba(0, 229, 255, 0.03); }
+  
+  .analysis-item { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s linear; }
+  .analysis-item:hover { background: rgba(0, 229, 255, 0.05); }
+  .analysis-item.active { background: var(--primary); color: #000; }
+  .analysis-item.active .mono-label { color: rgba(0,0,0,0.7); }
+  .analysis-item.active .tag { background: #000; color: #fff; border-color: rgba(255,255,255,0.2); }
+  
+  .empty-state-graphic {
+    font-size: clamp(4rem, 15vw, 15rem);
+    font-weight: 900;
+    line-height: 0.8;
+    color: rgba(255,255,255,0.02);
+    word-break: break-all;
+    text-transform: uppercase;
+    margin-top: 2rem;
+    user-select: none;
+  }
+  
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Tactical Overlays -->
+<div class="bg-grid"></div>
+<div class="scanlines"></div>
+
+<div class="app-layout">
+  <!-- Nav Rail Sidebar -->
+  <aside class="nav-rail">
+    <div class="logo">AFE // STRAT_INTEL</div>
+    <nav class="rail-links">
+      <div style="padding: 0 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Local Operations</div>
+      <a href="javascript:void(0)" class="rail-link active" style="cursor: not-allowed; opacity: 0.8;">
+        <span class="rail-num">01</span> Telemetry & Vault
+      </a>
+
+      <div style="padding: 2rem 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Global Network</div>
+      <a href="/" class="rail-link global">
+        <span class="rail-num">SYS</span> Engine Core
+      </a>
+      <a href="/static/dashboard.html" class="rail-link global active">
+        <span class="rail-num">DSH</span> Dashboard
+      </a>
+      <a href="/static/patterns.html" class="rail-link global">
+        <span class="rail-num">PTR</span> Patterns
+      </a>
+      <a href="/static/shareable.html" class="rail-link global">
+        <span class="rail-num">SHR</span> Shareable
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="content-area">
+    <div class="hero-metadata">
+      <span>COORD: 52.5200° N, 13.4050° E</span>
+      <span>NODE: [EUROPE_CENTRAL_01]</span>
+      <span>VER: 1.4.0-DEV</span>
+      <span>AUTH: LEVEL_4_CLEARANCE</span>
+    </div>
+    <h1 class="hero-title">DATA<br><span>VAULT</span></h1>
+    <p class="hero-desc">
+      [ SYSTEM_OVERVIEW ] Authenticated administrative control vault. Access telemetry logging, token quotas, and saved analysis payloads from the active inference model pipeline.
+    </p>
+
+    <!-- Authentication Gate -->
+    <div class="intel-card" id="authCard">
+      <div class="intel-card-header">
+        <span>AUTHENTICATION_GATEWAY // VAULT_DECRYPT</span>
+        <span>REF: [AUTH-PROT-104]</span>
+      </div>
+      <div class="intel-card-body">
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+          Provide your developer signature key to unlock secure local databases and cached inference runs. Generate a key from the Core Engine console if required.
+        </p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+          <input id="apiKey" type="password" placeholder="afe-..." autocomplete="off" style="flex: 1; min-width: 250px; margin-bottom: 0; padding: 1rem;">
+          <button id="loadBtn" style="font-size: 1rem; padding: 0.5rem 2rem;">Authenticate</button>
+          <button id="toggleBtn" class="secondary" style="font-size: 1rem; padding: 0.5rem 1.5rem;">Show</button>
+          <button id="clearBtn" class="secondary" style="border-color: var(--border); font-size: 1rem; padding: 0.5rem 1.5rem;">Reset</button>
+        </div>
+        <div id="error" style="color: var(--danger); font-family: var(--font-mono); font-size: 0.75rem; margin-bottom: 1rem;"></div>
+        
+        <!-- Pre-auth empty state graphic -->
+        <div id="preAuthGraphic" class="empty-state-graphic" style="text-align: center; padding: 2rem 0;">
+          LOCKED_
+        </div>
+      </div>
+    </div>
+
+    <!-- Usage Summary Card -->
+    <div id="summaryGrid" class="intel-card" hidden>
+      <div class="intel-card-header">
+        <span>OPERATIONAL_TELEMETRY // COMPUTATIONAL_CYCLES</span>
+        <span>REF: [LIMIT-SHIELD-V1]</span>
+      </div>
+      <div class="intel-card-body" style="padding: 0;">
+        <div class="summary-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 1px solid var(--border);">
+          <div class="metric-box" style="border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+            <div class="mono-label">Active Tier</div>
+            <div id="tierWrap" class="metric-value cobalt" style="font-family: var(--font-display); font-size: 3.5rem; color: var(--primary); line-height: 1.1; margin-top: 0.5rem;">-</div>
+          </div>
+          <div class="metric-box" style="border-bottom: 1px solid var(--border);">
+            <div class="mono-label">Compute Cycles (Today)</div>
+            <div id="callsToday" class="metric-value" style="font-family: var(--font-display); font-size: 3.5rem; color: var(--text-primary); line-height: 1.1; margin-top: 0.5rem;">0</div>
+            <div id="limitToday" class="mono-label" style="margin-top: 0.5rem; font-size: 0.65rem; color: var(--text-muted);">Limit: 0</div>
+          </div>
+          <div class="metric-box" style="border-right: 1px solid var(--border);">
+            <div class="mono-label">Lifetime Queries</div>
+            <div id="callsTotal" class="metric-value" style="font-family: var(--font-display); font-size: 3.5rem; color: var(--text-primary); line-height: 1.1; margin-top: 0.5rem;">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mono-label">Init Date</div>
+            <div id="memberSince" class="metric-value" style="font-family: var(--font-mono); font-size: 1.5rem; color: var(--text-primary); margin-top: 1rem;">-</div>
+          </div>
+        </div>
+
+        <div id="upgradeCta" style="padding: 2rem;" hidden>
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div class="mono-label">System Limits</div>
+              <div id="ctaText" style="font-family: var(--font-display); font-size: 2rem; color: var(--secondary); margin: 0;">0 calls remaining</div>
+            </div>
+            <button id="upgradeBtn" class="secondary" style="font-size: 1rem; padding: 0.5rem 1.5rem;">Upgrade Access</button>
+          </div>
+          <div class="progress-bar" style="height: 10px; background: var(--surface-bright); border: 1px solid var(--border); width: 100%;"><div id="progressFill" class="progress-fill" style="height: 100%; background: var(--primary); width: 0%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Vault Layout Card -->
+    <div id="mainLayout" class="intel-card" hidden>
+      <div class="intel-card-header">
+        <span>DECRYPTED_DATA_VAULT // REASONING_LOGS</span>
+        <span id="countText" style="color: var(--primary);">0 RECORDS</span>
+      </div>
+      <div class="intel-card-body" style="padding: 0;">
+        <div class="analysis-layout" style="display: grid; grid-template-columns: 380px 1fr; border-top: 1px solid var(--border);">
+          <!-- List side -->
+          <div style="border-right: 1px solid var(--border); display: flex; flex-direction: column;">
+            <div id="analysisList" style="flex: 1; max-height: 60vh; overflow-y: auto;"></div>
+            <div style="padding: 1.5rem; display:flex; gap: 1rem; border-top: 1px solid var(--border); background: var(--surface);">
+              <button id="prevBtn" class="secondary" style="flex:1; font-size: 1rem; padding: 0.5rem 1rem;">&larr; Prev Page</button>
+              <button id="nextBtn" class="secondary" style="flex:1; font-size: 1rem; padding: 0.5rem 1rem;">Next Page &rarr;</button>
+            </div>
+          </div>
+          
+          <!-- Detail side -->
+          <div id="detailPane" style="max-height: 70vh; overflow-y: auto; background: var(--bg);">
+            <div id="detailContent" style="height: 100%;">
+              <div style="padding: 4rem; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; color: var(--text-muted);">
+                <div class="massive-number" style="color: rgba(255,255,255,0.03); margin-bottom: 2rem; font-size: 6rem;">WAIT</div>
+                <div class="mono-label">Awaiting manifest selection...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Right Side Panel -->
+  <aside class="side-panel">
+    <div class="panel-section">
+      <span class="panel-label">SYS_STATUS</span>
+      <div id="sideStatus" class="status-pill">LOCKED</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">INFERENCE_MODE</span>
+      <div class="panel-value">ADVERSARIAL</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">VAULT_NODE</span>
+      <div class="panel-value">SECURE_STORE_01</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">COMPUTE_TIER</span>
+      <div id="sideTier" class="panel-value">-</div>
+    </div>
+    <div class="panel-section" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <span class="panel-label">SECURITY_CLEARANCE</span>
+      <div class="panel-value" style="color: var(--secondary);">LEVEL_4_ALPHA</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const state = { page: 1, hasMore: false, analyses: [], selectedId: null };
+
+const els = {
+  apiKey: document.getElementById("apiKey"),
+  loadBtn: document.getElementById("loadBtn"),
+  toggleBtn: document.getElementById("toggleBtn"),
+  clearBtn: document.getElementById("clearBtn"),
+  error: document.getElementById("error"),
+  preAuthGraphic: document.getElementById("preAuthGraphic"),
+  summaryGrid: document.getElementById("summaryGrid"),
+  tierWrap: document.getElementById("tierWrap"),
+  callsToday: document.getElementById("callsToday"),
+  limitToday: document.getElementById("limitToday"),
+  callsTotal: document.getElementById("callsTotal"),
+  memberSince: document.getElementById("memberSince"),
+  upgradeCta: document.getElementById("upgradeCta"),
+  ctaText: document.getElementById("ctaText"),
+  progressFill: document.getElementById("progressFill"),
+  mainLayout: document.getElementById("mainLayout"),
+  analysisList: document.getElementById("analysisList"),
+  detailContent: document.getElementById("detailContent"),
+  countText: document.getElementById("countText"),
+  prevBtn: document.getElementById("prevBtn"),
+  nextBtn: document.getElementById("nextBtn"),
+  sideStatus: document.getElementById("sideStatus"),
+  sideTier: document.getElementById("sideTier"),
+};
+
+function esc(value) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function fmtDate(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+async function api(path) {
+  const key = els.apiKey.value.trim();
+  const res = await fetch(path, { headers: { "x-api-key": key } });
+  let payload = null;
+  try { payload = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(payload?.error || payload?.detail || `Error ${res.status}`);
+  return payload;
+}
+
+function renderUsage(usage) {
+  els.preAuthGraphic.hidden = true;
+  els.summaryGrid.hidden = false;
+  const tier = usage.tier || "free";
+  els.tierWrap.textContent = tier.toUpperCase();
+  els.callsToday.textContent = usage.calls_today ?? 0;
+  els.callsTotal.textContent = usage.calls_total ?? 0;
+  els.limitToday.textContent = `Limit: ${usage.limit_today ?? "unlimited"}`;
+  els.memberSince.textContent = fmtDate(usage.member_since);
+
+  if (els.sideStatus) els.sideStatus.textContent = "SYNCHRONIZED";
+  if (els.sideTier) els.sideTier.textContent = tier.toUpperCase();
+
+  if (tier === "free") {
+    const used = usage.calls_today || 0;
+    const limit = usage.limit_today || 1;
+    const remaining = Math.max(0, limit - used);
+    els.upgradeCta.hidden = false;
+    els.ctaText.textContent = `${remaining} calls remaining`;
+    els.progressFill.style.width = `${Math.min(100, (used / limit) * 100)}%`;
+  } else {
+    els.upgradeCta.hidden = true;
+  }
+}
+
+function renderDetail(record) {
+  const ranked = record.ranked || [];
+  let html = `
+    <div style="background: var(--primary); color: var(--bg); padding: 2rem;">
+      <div class="mono-label" style="color: rgba(0,0,0,0.6); margin-bottom: 1rem;">Subject Query</div>
+      <h2 class="section-title" style="color: var(--bg); text-transform: none; font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 1.5rem; font-family: var(--font-sans); line-height: 1.1;">${esc(record.problem)}</h2>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+        <span class="tag" style="background:#000; color:#fff; border:none; margin:0;">${esc(record.domain)}</span>
+        <span class="mono-label" style="color: rgba(0,0,0,0.6);">${fmtDate(record.created_at)}</span>
+      </div>
+    </div>
+
+    <div style="padding: 2rem; border-bottom: 1px solid var(--border);">
+      <div class="mono-label" style="margin-bottom:0.5rem;">Baseline Consensus</div>
+      <p class="body-text" style="font-size: 1.25rem; border-left-color: var(--primary);">${esc(record.consensus?.consensus)}</p>
+      <div class="mono-label mt-1">Pressure: <span class="cobalt" style="color: var(--primary);">${esc(record.consensus?.pressure_label)}</span></div>
+    </div>
+  `;
+
+  html += ranked.map((item, idx) => `
+    <div style="padding: 2rem; border-bottom: 1px solid var(--border); ${idx === 0 ? 'background: rgba(0, 229, 255, 0.03);' : ''}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 1.5rem;">
+        <div>
+           <div class="mono-label" style="margin-bottom:0.5rem;">Rank ${String(idx+1).padStart(2,'0')} // ${esc(item.lens)}</div>
+           <h3 class="section-title" style="font-size: 2rem; text-transform:none; margin-bottom: 0; font-family: var(--font-display);">${esc(item.approach)}</h3>
+        </div>
+        <div style="text-align:right; margin-left: 2rem;">
+           <div class="mono-label">Composite</div>
+           <div class="massive-number" style="font-size: 4rem; color: ${idx === 0 ? 'var(--secondary)' : 'var(--primary)'}">${Number(item.composite).toFixed(3)}</div>
+        </div>
+      </div>
+      
+      <p class="body-text mb-2" style="max-width: 100%; border-left-color: ${idx === 0 ? 'var(--secondary)' : 'var(--primary)'}">${esc(item.reasoning)}</p>
+      
+      <table class="data-table mb-2">
+        <tr>
+          <th>Novelty</th>
+          <th>Feasibility</th>
+          <th>Risk</th>
+          <th>Expected Impact</th>
+        </tr>
+        <tr>
+          <td>${item.scores?.novelty}</td>
+          <td>${item.scores?.feasibility}</td>
+          <td>${item.scores?.risk}</td>
+          <td>${item.scores?.expected_impact}</td>
+        </tr>
+      </table>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; margin-top: 1.5rem;">
+        <div style="padding-right: 1rem; border-right: 1px solid var(--border);">
+          <div class="mono-label" style="margin-bottom:0.5rem;">Identified Weaknesses</div>
+          <div>${(item.critique?.weaknesses || []).map(w => `<span class="tag warn">${esc(w)}</span>`).join('') || '<span class="mono-label">None</span>'}</div>
+        </div>
+        <div style="padding-left: 1rem;">
+          <div class="mono-label" style="margin-bottom:0.5rem;">Failure Modes</div>
+          <div>${(item.critique?.failure_modes || []).map(f => `<span class="tag fail">${esc(f)}</span>`).join('') || '<span class="mono-label">None</span>'}</div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  return html;
+}
+
+async function selectAnalysis(id) {
+  state.selectedId = id;
+  renderList();
+  els.detailContent.innerHTML = `<div style="padding:4rem; text-align:center;" class="mono-label">FETCHING DATA...</div>`;
+  
+  try {
+    const record = await api(`/v1/analyses/${id}`);
+    els.detailContent.innerHTML = renderDetail(record);
+  } catch (e) {
+    els.detailContent.innerHTML = `<div style="padding:4rem; color:var(--danger);" class="mono-label">ERROR: ${e.message}</div>`;
+  }
+}
+
+function renderList() {
+  els.analysisList.innerHTML = "";
+  if (!state.analyses.length) {
+    els.analysisList.innerHTML = `<div style="padding:2rem;" class="mono-label">NO RECORDS IN VAULT.</div>`;
+    return;
+  }
+  els.countText.textContent = `[${state.analyses.length} ENTRIES]`;
+  state.analyses.forEach((item, idx) => {
+    const div = document.createElement("div");
+    div.className = `analysis-item ${state.selectedId === item.id ? 'active' : ''}`;
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; margin-bottom: 0.5rem;">
+        <span class="mono-label">${esc(item.domain)}</span>
+        <span class="mono-label">${fmtDate(item.created_at)}</span>
+      </div>
+      <div style="font-weight: 700; font-size: 1.125rem; line-height: 1.2; margin-bottom: 1rem;">${esc(item.problem)}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="tag" style="margin:0; ${state.selectedId === item.id ? 'background:#000; color:#fff;' : ''}">${esc(item.top_approach)}</span>
+        <span style="font-family: var(--font-mono); font-weight:700;">${Number(item.composite_score).toFixed(3)}</span>
+      </div>
+    `;
+    div.onclick = () => selectAnalysis(item.id);
+    els.analysisList.appendChild(div);
+  });
+}
+
+els.loadBtn.onclick = async () => {
+  els.error.textContent = "";
+  els.loadBtn.textContent = "AUTHENTICATING...";
+  try {
+    const usage = await api("/v1/usage");
+    renderUsage(usage);
+    const analyses = await api(`/v1/analyses?page=${state.page}`);
+    state.analyses = analyses.items || [];
+    state.hasMore = analyses.has_more;
+    els.mainLayout.hidden = false;
+    renderList();
+  } catch (e) {
+    els.error.textContent = "AUTH_FAIL: " + e.message;
+    if (els.sideStatus) els.sideStatus.textContent = "AUTH_FAILED";
+  } finally {
+    els.loadBtn.textContent = "Authenticate";
+  }
+};
+
+els.toggleBtn.onclick = () => {
+  els.apiKey.type = els.apiKey.type === "password" ? "text" : "password";
+  els.toggleBtn.textContent = els.apiKey.type === "password" ? "Show" : "Hide";
+};
+
+els.clearBtn.onclick = () => {
+  els.apiKey.value = "";
+  location.reload();
+};
+
+els.prevBtn.onclick = () => { if (state.page > 1) { state.page--; els.loadBtn.click(); } };
+els.nextBtn.onclick = () => { if (state.hasMore) { state.page++; els.loadBtn.click(); } };
+
+// Auto-authenticate if key is present in query or local storage
+document.addEventListener('DOMContentLoaded', () => {
+  const key = new URLSearchParams(window.location.search).get('key');
+  if (key) {
+    els.apiKey.value = key;
+    els.loadBtn.click();
+  }
+});
+</script>
+</body>
+</html>

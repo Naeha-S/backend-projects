@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern Mining // STRAT_INTEL_v1.0</title>
+<link rel="stylesheet" href="/static/modernist.css?v=2.0">
+<style>
+  .pattern-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-top: 2rem; }
+  @media (min-width: 1200px) { .pattern-grid { grid-template-columns: repeat(2, 1fr); } }
+  
+  .bar-row { display: grid; grid-template-columns: 140px 1fr 50px; gap: 1rem; align-items: center; margin-bottom: 0.75rem; }
+  .bar-track { height: 8px; background: var(--surface-bright); border: 1px solid var(--border); }
+  .bar-fill { height: 100%; background: var(--primary); transition: width 0.6s linear; }
+  
+  .theme-tag { display: inline-block; padding: 0.2rem 0.6rem; background: var(--surface-bright); color: var(--text-primary); border: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.65rem; margin-right: 0.4rem; margin-bottom: 0.4rem; text-transform: uppercase; }
+  
+  .stat-hero { font-family: var(--font-display); font-size: 3rem; font-weight: 900; line-height: 1; margin-bottom: 0.5rem; }
+  
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Tactical Overlays -->
+<div class="bg-grid"></div>
+<div class="scanlines"></div>
+
+<div class="app-layout">
+  <!-- Nav Rail Sidebar -->
+  <aside class="nav-rail">
+    <div class="logo">AFE // STRAT_INTEL</div>
+    <nav class="rail-links">
+      <div style="padding: 0 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Local Operations</div>
+      <a href="javascript:void(0)" class="rail-link active" style="cursor: not-allowed; opacity: 0.8;">
+        <span class="rail-num">01</span> Aggregate Metrics
+      </a>
+
+      <div style="padding: 2rem 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Global Network</div>
+      <a href="/" class="rail-link global">
+        <span class="rail-num">SYS</span> Engine Core
+      </a>
+      <a href="/static/dashboard.html" class="rail-link global">
+        <span class="rail-num">DSH</span> Dashboard
+      </a>
+      <a href="/static/patterns.html" class="rail-link global active">
+        <span class="rail-num">PTR</span> Patterns
+      </a>
+      <a href="/static/shareable.html" class="rail-link global">
+        <span class="rail-num">SHR</span> Shareable
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="content-area">
+    <div class="hero-metadata">
+      <span>COORD: 52.5200° N, 13.4050° E</span>
+      <span>NODE: [EUROPE_CENTRAL_01]</span>
+      <span>VER: 1.4.0-DEV</span>
+      <span>AUTH: LEVEL_4_CLEARANCE</span>
+    </div>
+    <h1 class="hero-title">PATTERN<br><span>MINING</span></h1>
+    <p class="hero-desc">
+      [ INTEL_MINE ] Cross-analysis signals harvested from the adversarial intelligence pipeline. These patterns identify which lenses generate the most stable, non-obvious results across discrete analytical domains.
+    </p>
+
+    <!-- Status Bar as sleek widget -->
+    <div class="intel-card" style="margin-bottom: 2rem;">
+      <div class="intel-card-header">
+        <span>MINING_STATUS // SYNCHRONIZATION</span>
+        <span>REF: [MINE-STAT-709]</span>
+      </div>
+      <div class="intel-card-body" style="padding: 1.5rem 2rem; display:flex; justify-content:space-between; align-items:center;">
+        <div id="statusText" class="mono-label" style="color: var(--text-primary);">Initializing Memory Layer...</div>
+        <div id="updatedText" style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--secondary);"></div>
+      </div>
+    </div>
+
+    <!-- Domain Cards -->
+    <div id="cards" class="pattern-grid">
+      <!-- Dynamically Populated -->
+    </div>
+  </main>
+
+  <!-- Right Side Panel -->
+  <aside class="side-panel">
+    <div class="panel-section">
+      <span class="panel-label">SYS_STATUS</span>
+      <div class="status-pill">SYNCHRONIZED</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">MINING_ENGINE</span>
+      <div class="panel-value">LIVE</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">ANALYSES_PROCESSED</span>
+      <div id="poweredBy" class="panel-value" style="color: var(--primary);">0 ANALYSES</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">AUTO_REFRESH</span>
+      <div class="panel-value">ACTIVE [60S]</div>
+    </div>
+    <div class="panel-section" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <span class="panel-label">SECURITY_CLEARANCE</span>
+      <div class="panel-value" style="color: var(--secondary);">LEVEL_4_ALPHA</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const DOMAINS = ["general", "startup", "product", "engineering", "finance", "research"];
+const LENS_LABELS = {
+  first_principles: "First Principles",
+  inversion: "Inversion",
+  analogical: "Analogical",
+  constraint_removal: "Constraint Removal",
+  second_order: "Second Order"
+};
+
+function esc(value) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function pct(value) { return `${Math.round(Number(value || 0) * 100)}%`; }
+function fmtScore(value) { return Number(value || 0).toFixed(3); }
+
+function renderCard(domain, pattern) {
+  const rates = pattern?.lens_win_rates || {};
+  const themes = Array.isArray(pattern?.top_problem_themes) ? pattern.top_problem_themes : [];
+  const total = Number(pattern?.total_analyses || 0);
+  const topLens = pattern?.top_lens ? LENS_LABELS[pattern.top_lens] : "None Stable";
+  
+  const bars = Object.keys(LENS_LABELS).map(lens => `
+    <div class="bar-row">
+      <div style="font-size: 0.65rem; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">${esc(LENS_LABELS[lens])}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct(rates[lens])};"></div>
+      </div>
+      <div style="font-size: 0.65rem; font-family: var(--font-mono); text-align:right;">${pct(rates[lens])}</div>
+    </div>
+  `).join("");
+
+  return `
+    <div class="intel-card">
+      <div class="intel-card-header">
+        <span>DOMAIN_MINING // ${esc(domain.toUpperCase())}</span>
+        <span>SIG_VOL: [${total} RUNS]</span>
+      </div>
+      <div class="intel-card-body">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 2rem;">
+          <div>
+            <div class="mono-label" style="margin-bottom: 0.5rem;">Total Saved Analyses</div>
+            <div class="stat-hero cobalt" style="color: var(--primary);">${total}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="mono-label" style="margin-bottom: 0.5rem;">Avg Composite</div>
+            <div class="section-title" style="font-size: 2rem; margin: 0; font-family: var(--font-display);">${fmtScore(pattern?.avg_composite_score)}</div>
+          </div>
+        </div>
+
+        <div class="mb-2" style="background: rgba(0, 229, 255, 0.03); padding: 1.5rem; border: 1px solid var(--border); margin-bottom: 2rem;">
+           <div class="mono-label" style="margin-bottom: 0.25rem;">Dominant Lens</div>
+           <div class="section-title" style="font-size: 1.5rem; margin:0; font-family: var(--font-display); color: var(--secondary);">${esc(topLens)}</div>
+        </div>
+
+        <div class="mb-2" style="margin-bottom: 2rem;">
+          <div class="mono-label" style="margin-bottom: 1rem;">Win Rate Distribution</div>
+          ${bars}
+        </div>
+
+        <div>
+          <div class="mono-label" style="margin-bottom: 0.75rem;">Top Problem Themes</div>
+          <div style="display:flex; flex-wrap:wrap;">
+            ${themes.length ? themes.map(t => `<span class="theme-tag">${esc(t)}</span>`).join('') : '<span class="body-text" style="font-size: 0.75rem; border-left:none; padding-left:0; margin-bottom:0;">Insufficient data signal.</span>'}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadPatterns() {
+  const cards = document.getElementById("cards");
+  const statusText = document.getElementById("statusText");
+  const updatedText = document.getElementById("updatedText");
+  const poweredBy = document.getElementById("poweredBy");
+
+  try {
+    const res = await fetch("/v1/patterns");
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error || "Failed to load patterns");
+
+    const domains = payload.domains || {};
+    cards.innerHTML = DOMAINS.map(domain => renderCard(domain, domains[domain] || { total_analyses: 0 })).join("");
+    poweredBy.textContent = `${payload.total_analyses || 0} ANALYSES`;
+    if (payload.last_updated) {
+       const d = new Date(payload.last_updated);
+       updatedText.textContent = `SYNC: ${d.toLocaleTimeString()}`;
+    }
+    statusText.textContent = "Memory Layer Live.";
+  } catch (error) {
+    cards.innerHTML = `<div style="padding:4rem; color: var(--primary);" class="mono-label">ERROR: ${esc(error.message)}</div>`;
+    statusText.textContent = "Sync Error.";
+  }
+}
+
+loadPatterns();
+setInterval(loadPatterns, 60000);
+</script>
+</body>
+</html>
