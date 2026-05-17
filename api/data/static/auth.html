@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Authentication Console // STRAT_INTEL_v1.0</title>
+<link rel="stylesheet" href="/static/modernist.css?v=2.0">
+<style>
+  .auth-shell {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 2rem;
+    align-items: start;
+  }
+  .auth-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  .status-chip {
+    border: 1px solid var(--border);
+    padding: 0.55rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .status-chip.live {
+    border-color: rgba(0, 229, 255, 0.25);
+    color: var(--primary);
+    background: rgba(0, 229, 255, 0.05);
+  }
+  .status-chip.warn {
+    border-color: rgba(255, 171, 0, 0.25);
+    color: var(--secondary);
+    background: rgba(255, 171, 0, 0.05);
+  }
+  .status-chip.fail {
+    border-color: rgba(255, 77, 77, 0.25);
+    color: var(--danger);
+    background: rgba(255, 77, 77, 0.05);
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .console-output {
+    min-height: 72px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    line-height: 1.7;
+  }
+  .session-list {
+    display: grid;
+    gap: 1rem;
+  }
+  .session-item {
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 1rem 1.1rem;
+  }
+  .session-item.current {
+    border-color: rgba(0, 229, 255, 0.3);
+    box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.08);
+  }
+  .session-line {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    margin-top: 0.4rem;
+    word-break: break-word;
+  }
+  .key-display {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--secondary);
+    word-break: break-all;
+  }
+  @media (max-width: 1100px) {
+    .auth-shell,
+    .auth-grid,
+    .field-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="scanlines"></div>
+
+<div class="app-layout">
+  <aside class="nav-rail">
+    <div class="logo">AFE // STRAT_INTEL</div>
+    <nav class="rail-links">
+      <div style="padding: 0 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Access Control</div>
+      <a href="javascript:void(0)" class="rail-link active" style="cursor: default;">
+        <span class="rail-num">01</span> Identity Console
+      </a>
+
+      <div style="padding: 2rem 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Global Network</div>
+      <a href="/" class="rail-link global">
+        <span class="rail-num">SYS</span> Engine Core
+      </a>
+      <a href="/auth" class="rail-link global active">
+        <span class="rail-num">ATH</span> Auth
+      </a>
+      <a href="/dashboard" class="rail-link global">
+        <span class="rail-num">DSH</span> Dashboard
+      </a>
+      <a href="/patterns" class="rail-link global">
+        <span class="rail-num">PTR</span> Patterns
+      </a>
+    </nav>
+  </aside>
+
+  <main class="content-area">
+    <div class="hero-metadata">
+      <span>COORD: 40.7128° N, 74.0060° W</span>
+      <span>NODE: [AUTH_GATE_01]</span>
+      <span>VER: 2.0.0-LOCK</span>
+      <span>MODE: SIGNED_SESSION</span>
+    </div>
+    <h1 class="hero-title">AUTH<br><span>CONSOLE</span></h1>
+    <p class="body-text">
+      [ IDENTITY_CONTROL ] Establish a signed session, verify email ownership, enroll MFA, and complete a re-auth challenge before generating a developer key. This page is the missing control surface for the protected key flow.
+    </p>
+
+    <div class="auth-shell">
+      <section>
+        <div class="intel-card">
+          <div class="intel-card-header">
+            <span>ACCESS_STATUS // LIVE_SESSION</span>
+            <span id="nextTargetLabel">NEXT: /</span>
+          </div>
+          <div class="intel-card-body">
+            <div class="pill-row" id="statusRow">
+              <span class="status-chip fail">offline</span>
+              <span class="status-chip">email unknown</span>
+              <span class="status-chip">mfa idle</span>
+              <span class="status-chip">reauth pending</span>
+            </div>
+            <div class="console-output" id="statusConsole" style="margin-top: 1.25rem;">No authenticated session detected.</div>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-top: 1.25rem;">
+              <button id="refreshSessionBtn">Refresh Status</button>
+              <button id="logoutBtn" class="secondary">Logout</button>
+              <button id="continueBtn" class="secondary">Return To App</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-grid">
+          <div class="intel-card">
+            <div class="intel-card-header">
+              <span>CREATE_ACCOUNT // EMAIL_PASSWORD</span>
+              <span>PATH: /auth/signup</span>
+            </div>
+            <div class="intel-card-body">
+              <input id="signupEmail" type="email" placeholder="operator@domain.com" autocomplete="email">
+              <input id="signupPassword" type="password" placeholder="Minimum 10 characters" autocomplete="new-password">
+              <button id="signupBtn">Create Account</button>
+            </div>
+          </div>
+
+          <div class="intel-card">
+            <div class="intel-card-header">
+              <span>LOGIN // SESSION_INIT</span>
+              <span>PATH: /auth/login</span>
+            </div>
+            <div class="intel-card-body">
+              <input id="loginEmail" type="email" placeholder="operator@domain.com" autocomplete="email">
+              <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password">
+              <input id="loginTotp" type="text" inputmode="numeric" placeholder="TOTP code if enabled">
+              <button id="loginBtn">Sign In</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="intel-card">
+          <div class="intel-card-header">
+            <span>VERIFICATION // REAUTH // KEY_ISSUE</span>
+            <span>SECURE_CHAIN</span>
+          </div>
+          <div class="intel-card-body">
+            <div class="field-row">
+              <div>
+                <div class="mono-label" style="margin-bottom:0.75rem;">Email Verification</div>
+                <input id="verifyToken" type="text" placeholder="Paste verification token">
+                <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                  <button id="verifyBtn">Verify Email</button>
+                  <button id="requestVerifyBtn" class="secondary">Request Token</button>
+                </div>
+              </div>
+              <div>
+                <div class="mono-label" style="margin-bottom:0.75rem;">Sensitive Action Re-Auth</div>
+                <input id="reauthPassword" type="password" placeholder="Password challenge">
+                <input id="reauthTotp" type="text" inputmode="numeric" placeholder="TOTP if MFA enabled">
+                <button id="reauthBtn">Complete Re-Auth</button>
+              </div>
+            </div>
+            <div style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+              <div class="mono-label" style="margin-bottom:0.75rem;">Generate Developer Key</div>
+              <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+                <button id="generateKeyBtn">Generate Key</button>
+                <button id="copyKeyBtn" class="secondary">Copy Key</button>
+                <button id="jumpDashboardBtn" class="secondary">Open Dashboard</button>
+              </div>
+              <div id="generatedKey" class="key-display" style="margin-top:1rem;">No key generated yet.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="intel-card">
+          <div class="intel-card-header">
+            <span>MFA_ENROLLMENT // TOTP</span>
+            <span>HIGH_TRUST</span>
+          </div>
+          <div class="intel-card-body">
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+              TOTP is implemented in this repo. WebAuthn is not yet implemented.
+            </p>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+              <button id="startMfaBtn">Start MFA Setup</button>
+              <button id="confirmMfaBtn" class="secondary">Confirm MFA</button>
+            </div>
+            <input id="confirmMfaCode" type="text" inputmode="numeric" placeholder="Enter 6-digit TOTP code">
+            <div class="console-output" id="mfaConsole" style="margin-top:1rem;">MFA secret and otpauth URL will appear here after setup.</div>
+          </div>
+        </div>
+
+        <div class="intel-card">
+          <div class="intel-card-header">
+            <span>SESSION_INVENTORY // DEVICE_VISIBILITY</span>
+            <span>ROTATION</span>
+          </div>
+          <div class="intel-card-body">
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+              <button id="loadSessionsBtn">Load Sessions</button>
+              <button id="logoutAllBtn" class="secondary">Logout Other Sessions</button>
+            </div>
+            <div id="sessionList" class="session-list">
+              <div class="session-item">
+                <div class="mono-label">No session inventory loaded.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="intel-card">
+          <div class="intel-card-header">
+            <span>OPERATOR_NOTES // FLOW</span>
+            <span>CHECKLIST</span>
+          </div>
+          <div class="intel-card-body">
+            <div class="console-output">1. Create account or sign in.
+2. Request or use the returned email verification token.
+3. Verify email ownership.
+4. Optionally enroll TOTP MFA.
+5. Complete re-auth.
+6. Generate key.
+7. Return to the engine or dashboard with the issued key auto-saved locally.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <aside class="side-panel">
+    <div class="panel-section">
+      <span class="panel-label">SESSION</span>
+      <div id="sideSessionState" class="status-pill">OFFLINE</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">EMAIL_STATE</span>
+      <div id="sideEmailState" class="panel-value">UNKNOWN</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">MFA_STATE</span>
+      <div id="sideMfaState" class="panel-value">DISABLED</div>
+    </div>
+    <div class="panel-section">
+      <span class="panel-label">NEXT_TARGET</span>
+      <div id="sideNextTarget" class="panel-value">/</div>
+    </div>
+    <div class="panel-section" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <span class="panel-label">STACK_NOTE</span>
+      <div class="panel-value" style="color: var(--secondary); font-size: 0.8rem;">Better Auth and Drizzle require a Node/TypeScript service layer.</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const nextTarget = new URLSearchParams(window.location.search).get("next") || "/";
+const state = { current: null, currentSessionId: null, reauthReady: false, key: null, mfaSetup: null };
+
+const els = {
+  nextTargetLabel: document.getElementById("nextTargetLabel"),
+  sideNextTarget: document.getElementById("sideNextTarget"),
+  statusRow: document.getElementById("statusRow"),
+  statusConsole: document.getElementById("statusConsole"),
+  sideSessionState: document.getElementById("sideSessionState"),
+  sideEmailState: document.getElementById("sideEmailState"),
+  sideMfaState: document.getElementById("sideMfaState"),
+  signupEmail: document.getElementById("signupEmail"),
+  signupPassword: document.getElementById("signupPassword"),
+  loginEmail: document.getElementById("loginEmail"),
+  loginPassword: document.getElementById("loginPassword"),
+  loginTotp: document.getElementById("loginTotp"),
+  verifyToken: document.getElementById("verifyToken"),
+  reauthPassword: document.getElementById("reauthPassword"),
+  reauthTotp: document.getElementById("reauthTotp"),
+  generatedKey: document.getElementById("generatedKey"),
+  mfaConsole: document.getElementById("mfaConsole"),
+  sessionList: document.getElementById("sessionList"),
+};
+
+els.nextTargetLabel.textContent = `NEXT: ${nextTarget}`;
+els.sideNextTarget.textContent = nextTarget;
+
+function fmt(value) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleString();
+  } catch (_) {
+    return value;
+  }
+}
+
+function statusChip(text, cls = "") {
+  const className = cls ? `status-chip ${cls}` : "status-chip";
+  return `<span class="${className}">${text}</span>`;
+}
+
+function showMessage(message) {
+  els.statusConsole.textContent = message;
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  let payload = null;
+  try { payload = await response.json(); } catch (_) {}
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || payload?.detail || `Request failed with ${response.status}`);
+  }
+  return payload;
+}
+
+function renderStatus(sessionPayload) {
+  state.current = sessionPayload || null;
+  if (!sessionPayload) {
+    state.currentSessionId = null;
+    state.reauthReady = false;
+    els.statusRow.innerHTML = [
+      statusChip("offline", "fail"),
+      statusChip("email unknown"),
+      statusChip("mfa idle"),
+      statusChip("reauth pending"),
+    ].join("");
+    els.sideSessionState.textContent = "OFFLINE";
+    els.sideEmailState.textContent = "UNKNOWN";
+    els.sideMfaState.textContent = "DISABLED";
+    showMessage("No authenticated session detected.");
+    return;
+  }
+
+  const user = sessionPayload.user || {};
+  const session = sessionPayload.session || {};
+  state.currentSessionId = session.id || null;
+  const emailState = user.email_verified ? "verified" : "pending verification";
+  const mfaState = user.mfa_enabled ? "enabled" : "disabled";
+  els.statusRow.innerHTML = [
+    statusChip("session active", "live"),
+    statusChip(emailState, user.email_verified ? "live" : "warn"),
+    statusChip(`mfa ${mfaState}`, user.mfa_enabled ? "live" : ""),
+    statusChip(state.reauthReady ? "reauth ready" : "reauth pending", state.reauthReady ? "live" : "warn"),
+  ].join("");
+  els.sideSessionState.textContent = "ONLINE";
+  els.sideEmailState.textContent = user.email_verified ? "VERIFIED" : "PENDING";
+  els.sideMfaState.textContent = user.mfa_enabled ? "ENABLED" : "DISABLED";
+  showMessage(
+    `Authenticated as ${user.email}\n` +
+    `security_tier=${user.security_tier}\n` +
+    `session_id=${session.id || "-"}\n` +
+    `created_at=${fmt(user.created_at)}\n` +
+    `last_login_at=${fmt(user.last_login_at)}`
+  );
+
+  if (sessionPayload.email_verification_token && !user.email_verified) {
+    els.verifyToken.value = sessionPayload.email_verification_token;
+  }
+}
+
+async function refreshSession() {
+  try {
+    const payload = await api("/auth/me", { method: "GET" });
+    renderStatus(payload);
+  } catch (_) {
+    renderStatus(null);
+  }
+}
+
+async function signup() {
+  const payload = await api("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({
+      email: els.signupEmail.value.trim(),
+      password: els.signupPassword.value,
+    }),
+  });
+  state.reauthReady = false;
+  renderStatus(payload);
+  showMessage(`Account created.\nVerification token copied into form field.\nAuthenticated as ${payload.user.email}`);
+}
+
+async function login() {
+  const payload = await api("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: els.loginEmail.value.trim(),
+      password: els.loginPassword.value,
+      totp_code: els.loginTotp.value.trim() || null,
+    }),
+  });
+  state.reauthReady = false;
+  renderStatus(payload);
+}
+
+async function requestVerification() {
+  const payload = await api("/auth/email-verification/request", { method: "POST" });
+  if (payload.token) {
+    els.verifyToken.value = payload.token;
+  }
+  showMessage(payload.message || "Verification token issued.");
+}
+
+async function verifyEmail() {
+  await api("/auth/email-verification/verify", {
+    method: "POST",
+    body: JSON.stringify({ token: els.verifyToken.value.trim() }),
+  });
+  await refreshSession();
+  showMessage("Email verification succeeded.");
+}
+
+async function startMfa() {
+  const payload = await api("/auth/mfa/setup", { method: "POST" });
+  state.mfaSetup = payload;
+  els.mfaConsole.textContent = `secret=${payload.secret}\notpauth_url=${payload.otpauth_url}`;
+}
+
+async function confirmMfa() {
+  await api("/auth/mfa/confirm", {
+    method: "POST",
+    body: JSON.stringify({ code: document.getElementById("confirmMfaCode").value.trim() }),
+  });
+  await refreshSession();
+  els.mfaConsole.textContent = "MFA enabled successfully.";
+}
+
+async function reauth() {
+  await api("/auth/reauth", {
+    method: "POST",
+    body: JSON.stringify({
+      password: els.reauthPassword.value,
+      totp_code: els.reauthTotp.value.trim() || null,
+    }),
+  });
+  state.reauthReady = true;
+  await refreshSession();
+}
+
+async function generateKey() {
+  const payload = await api("/v1/keys", { method: "POST" });
+  state.key = payload.key || null;
+  if (state.key) {
+    localStorage.setItem("afe-api-key", state.key);
+    els.generatedKey.textContent = state.key;
+    showMessage("Developer key generated and saved to localStorage.");
+  }
+}
+
+async function loadSessions() {
+  const payload = await api("/auth/sessions", { method: "GET" });
+  state.currentSessionId = payload.current_session_id || null;
+  const items = payload.sessions || [];
+  els.sessionList.innerHTML = items.map((session) => {
+    const current = session.id === state.currentSessionId;
+    return `
+      <div class="session-item ${current ? "current" : ""}">
+        <div class="mono-label">${current ? "current session" : "session"} // ${session.active ? "active" : "inactive"}</div>
+        <div class="session-line">id=${session.id}</div>
+        <div class="session-line">created=${fmt(session.created_at)}</div>
+        <div class="session-line">last_seen=${fmt(session.last_seen_at)}</div>
+        <div class="session-line">expires=${fmt(session.expires_at)}</div>
+        <div class="session-line">ip=${session.ip || "-"}</div>
+        <div class="session-line">ua=${session.user_agent || "-"}</div>
+      </div>
+    `;
+  }).join("") || `<div class="session-item"><div class="mono-label">No sessions found.</div></div>`;
+}
+
+async function logout() {
+  await api("/auth/logout", { method: "POST" });
+  state.reauthReady = false;
+  state.key = null;
+  renderStatus(null);
+  els.generatedKey.textContent = "No key generated yet.";
+}
+
+async function logoutOthers() {
+  await api("/auth/sessions/logout-all", { method: "POST" });
+  await loadSessions();
+}
+
+function returnToApp() {
+  if (state.key) {
+    const joiner = nextTarget.includes("?") ? "&" : "?";
+    window.location.href = `${nextTarget}${joiner}key=${encodeURIComponent(state.key)}`;
+    return;
+  }
+  window.location.href = nextTarget;
+}
+
+function copyKey() {
+  if (!state.key) return;
+  navigator.clipboard.writeText(state.key);
+  showMessage("Developer key copied to clipboard.");
+}
+
+document.getElementById("signupBtn").addEventListener("click", () => signup().catch((err) => showMessage(err.message)));
+document.getElementById("loginBtn").addEventListener("click", () => login().catch((err) => showMessage(err.message)));
+document.getElementById("requestVerifyBtn").addEventListener("click", () => requestVerification().catch((err) => showMessage(err.message)));
+document.getElementById("verifyBtn").addEventListener("click", () => verifyEmail().catch((err) => showMessage(err.message)));
+document.getElementById("startMfaBtn").addEventListener("click", () => startMfa().catch((err) => showMessage(err.message)));
+document.getElementById("confirmMfaBtn").addEventListener("click", () => confirmMfa().catch((err) => showMessage(err.message)));
+document.getElementById("reauthBtn").addEventListener("click", () => reauth().catch((err) => showMessage(err.message)));
+document.getElementById("generateKeyBtn").addEventListener("click", () => generateKey().catch((err) => showMessage(err.message)));
+document.getElementById("refreshSessionBtn").addEventListener("click", () => refreshSession());
+document.getElementById("loadSessionsBtn").addEventListener("click", () => loadSessions().catch((err) => showMessage(err.message)));
+document.getElementById("logoutBtn").addEventListener("click", () => logout().catch((err) => showMessage(err.message)));
+document.getElementById("logoutAllBtn").addEventListener("click", () => logoutOthers().catch((err) => showMessage(err.message)));
+document.getElementById("continueBtn").addEventListener("click", returnToApp);
+document.getElementById("jumpDashboardBtn").addEventListener("click", () => {
+  if (state.key) {
+    window.location.href = `/dashboard?key=${encodeURIComponent(state.key)}`;
+    return;
+  }
+  window.location.href = "/dashboard";
+});
+document.getElementById("copyKeyBtn").addEventListener("click", copyKey);
+
+refreshSession();
+</script>
+</body>
+</html>

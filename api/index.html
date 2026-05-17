@@ -468,8 +468,16 @@ document.addEventListener('DOMContentLoaded', () => {
       genKeyBtn.disabled = true;
       genKeyBtn.textContent = 'GENERATING...';
       try {
-        const r = await fetch('/v1/keys', {method: 'POST'});
+        const r = await fetch('/v1/keys', {method: 'POST', credentials: 'include'});
         const j = await r.json();
+        if (!r.ok) {
+          const message = j?.error?.message || j?.detail || 'Authentication required';
+          if (r.status === 401 || r.status === 403) {
+            window.location.href = '/auth?next=/';
+            return;
+          }
+          throw new Error(message);
+        }
         document.getElementById('keyDisplay').textContent = ' [' + (j.key || 'ERR') + '] (COPY NOW)';
         genKeyBtn.textContent = 'KEY_ISSUED';
       } catch(e) {

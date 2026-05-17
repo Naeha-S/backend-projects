@@ -6,256 +6,125 @@
 <title>ADVERSARIAL FRAMING ENGINE // STRAT_INTEL_v1.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@100;400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@100;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/modernist.css?v=2.0">
 <style>
-:root {
-  /* Strategic Intelligence Design System */
-  --bg: #000000;
-  --surface: #121414;
-  --surface-bright: #1f2020;
-  --border: #3b494c;
-  --primary: #00e5ff; /* Electric Blue */
-  --secondary: #ffab00; /* Tactical Amber */
-  --text-primary: #e3e2e2;
-  --text-secondary: #bac9cc;
-  --text-muted: #666666;
-  --accent-glow: rgba(0, 229, 255, 0.3);
-  --danger: #ff4d4d;
+  /* Page-specific overrides for local tabs and schematic pipeline */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
   
-  --font-display: 'Anton', sans-serif;
-  --font-sans: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  @keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(8px); } 
+    to { opacity: 1; transform: translateY(0); } 
+  }
   
-  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; cursor: crosshair; }
-
-body {
-  background-color: var(--bg);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  line-height: 1.6;
-  overflow: hidden;
-  height: 100vh;
-}
-
-/* Tactical Overlays */
-.bg-grid {
-  position: fixed;
-  inset: 0;
-  background-size: 32px 32px;
-  background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
-  pointer-events: none;
-  z-index: 1;
-}
-.scanlines {
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
-              linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-  background-size: 100% 4px, 3px 100%;
-  pointer-events: none;
-  z-index: 100;
-  opacity: 0.15;
-}
-
-/* Layout */
-.app-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr 280px;
-  height: 100vh;
-  position: relative;
-  z-index: 10;
-}
-
-/* Nav Rail */
-.nav-rail {
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  padding: 2rem 0;
-}
-.logo {
-  padding: 0 2rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.2em;
-  margin-bottom: 4rem;
-  color: var(--primary);
-  font-weight: bold;
-}
-.rail-links {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-.rail-link {
-  padding: 1rem 2rem;
-  text-decoration: none;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border-left: 2px solid transparent;
-  transition: var(--transition);
-}
-.rail-link:hover {
-  color: var(--text-primary);
-  background: rgba(255,255,255,0.02);
-}
-.rail-link.active {
-  color: var(--primary);
-  border-left-color: var(--primary);
-  background: rgba(0, 229, 255, 0.05);
-}
-.rail-num { opacity: 0.4; font-size: 0.6rem; }
-
-/* Content Area */
-.content-area {
-  overflow-y: auto;
-  padding: 4rem 10%;
-  border-right: 1px solid var(--border);
-  position: relative;
-}
-.tab-content { display: none; }
-.tab-content.active { display: block; animation: fadeIn 0.3s ease; }
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-/* Hero */
-.hero-metadata {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-  display: flex;
-  gap: 2rem;
-}
-.hero-title {
-  font-family: var(--font-display);
-  font-size: clamp(4rem, 8vw, 8rem);
-  line-height: 0.85;
-  text-transform: uppercase;
-  margin-bottom: 2rem;
-  color: var(--text-primary);
-}
-.hero-title span { color: var(--primary); text-shadow: 0 0 20px var(--accent-glow); }
-.hero-desc {
-  border-left: 2px solid var(--primary);
-  padding-left: 1.5rem;
-  max-width: 600px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 4rem;
-}
-
-/* Modular Cards */
-.intel-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  margin-bottom: 2rem;
-  position: relative;
-}
-.intel-card-header {
-  background: var(--border);
-  padding: 0.5rem 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--bg);
-  font-weight: bold;
-}
-.intel-card-body { padding: 2rem; }
-
-/* Terminal Input */
-.terminal-input-wrap {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  padding: 1.5rem;
-  display: flex;
-  gap: 1.5rem;
-}
-.terminal-prompt { color: var(--primary); font-family: var(--font-mono); font-weight: bold; }
-.terminal-input-wrap textarea {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  outline: none;
-  resize: none;
-  min-height: 120px;
-}
-.terminal-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1rem;
-}
-.action-btn {
-  background: var(--primary);
-  color: var(--bg);
-  border: none;
-  padding: 0.75rem 2rem;
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  letter-spacing: 0.05em;
-  transition: var(--transition);
-}
-.action-btn:hover { background: #fff; transform: skewX(-5deg); }
-.action-btn:disabled { background: var(--text-muted); }
-
-/* Pipeline */
-.pipeline-viz {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 3rem;
-  padding: 1rem;
-  background: rgba(255,255,255,0.02);
-}
-.pipe-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-muted);
-}
-.node-status { width: 12px; height: 12px; border: 1px solid var(--border); }
-.pipe-node.active { color: var(--primary); }
-.pipe-node.active .node-status { border-color: var(--primary); background: var(--primary); box-shadow: 0 0 10px var(--primary); }
-.pipe-node.loading .node-status { animation: pulse 1s infinite; background: var(--primary); }
-
-@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
-
-/* Right Panel */
-.side-panel {
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 3rem;
-}
-.panel-section { display: flex; flex-direction: column; gap: 0.5rem; }
-.panel-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
-.panel-value { font-family: var(--font-mono); font-size: 1.1rem; color: var(--text-primary); }
-.status-pill { display: flex; align-items: center; gap: 8px; color: var(--primary); }
-.status-pill::before { content: ''; width: 6px; height: 6px; background: var(--primary); border-radius: 50%; }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); }
+  /* Terminal overrides */
+  .terminal-input-wrap {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid var(--border) !important;
+    padding: 1.5rem !important;
+    display: flex;
+    gap: 1.5rem;
+    transition: all 0.3s ease;
+  }
+  .terminal-input-wrap:focus-within {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.08) !important;
+  }
+  .terminal-prompt { 
+    color: var(--primary); 
+    font-family: var(--font-mono); 
+    font-weight: bold; 
+    font-size: 1rem;
+    line-height: 1.2;
+    margin-top: 0.15rem;
+  }
+  .terminal-input-wrap textarea {
+    flex: 1;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    outline: none;
+    resize: none;
+    min-height: 120px;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  
+  .terminal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+  }
+  
+  /* Custom schematic pipeline visuals */
+  .pipeline-viz {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    padding: 1.75rem 2rem;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .pipeline-viz::before {
+    content: '';
+    position: absolute;
+    left: 3rem;
+    right: 3rem;
+    top: 50%;
+    height: 1px;
+    background: var(--border);
+    z-index: 1;
+    transform: translateY(-11px);
+  }
+  .pipe-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    position: relative;
+    z-index: 2;
+    background: var(--surface);
+    padding: 0 1rem;
+    transition: all 0.3s ease;
+  }
+  .node-status {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    transition: all 0.3s ease;
+  }
+  .pipe-node.active { 
+    color: var(--primary); 
+    font-weight: 600;
+  }
+  .pipe-node.active .node-status {
+    border-color: var(--primary);
+    background: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+  }
+  .pipe-node.loading .node-status {
+    border-color: var(--primary);
+    background: var(--bg);
+    box-shadow: 0 0 12px var(--primary);
+    animation: pulse-glow 1.2s infinite;
+  }
+  @keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(0, 229, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
+  }
+</style>
 
 </style>
 </head>
@@ -291,6 +160,9 @@ body {
       <div style="padding: 2rem 2rem 1rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.2em;">Global Network</div>
       <a href="/" class="rail-link global active" style="border-left-color: transparent; background: transparent; color: var(--primary);">
         <span class="rail-num">SYS</span> Engine Core
+      </a>
+      <a href="/auth" class="rail-link global">
+        <span class="rail-num">ATH</span> Auth
       </a>
       <a href="/static/dashboard.html" class="rail-link global">
         <span class="rail-num">DSH</span> Dashboard
@@ -401,48 +273,199 @@ body {
       <div id="out"></div>
     </div>
 
-    <!-- Placeholder Tabs -->
+    <!-- Upgraded Administrative Tabs -->
     <div id="system" class="tab-content">
-      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">SYSTEM_STATE</h2>
+      <div class="hero-metadata">
+        <span>MODULE: SECURE_CORE_AUTH</span>
+        <span>CRYPT_SHIELD: STABLE</span>
+      </div>
+      <h1 class="hero-title" style="margin-bottom:1.5rem;">SYSTEM<br><span>CONTROL</span></h1>
+      <p class="body-text" style="margin-bottom:3rem;">[ AUTHENTICATION_SERVICES ] Manage administrative credentials, cryptographic key signatures, and host inference node settings.</p>
+      
       <div class="intel-card">
-        <div class="intel-card-body">
-          <pre style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--primary);">
-> CHECKING_MODULES...
-> CORE_INFERENCE: STABLE
-> ADVERSARIAL_ROUTER: ACTIVE
-> MEMORY_STATE: 1.2GB/16GB
-> UPTIME: 142:22:01
-> API_AUTH: <button id="genKeyBtn" class="action-btn" style="font-size: 0.7rem; padding: 0.2rem 1rem; margin-bottom: 0;">GENERATE_KEY</button> <span id="keyDisplay" style="color: var(--secondary);"></span>
-          </pre>
-          <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
-            <div class="mono-label" style="margin-bottom: 0.5rem; color: var(--text-muted);">ACTIVE_SIGNATURE_KEY</div>
-            <div style="display: flex; gap: 1rem;">
-              <input id="manualKeyInput" type="password" placeholder="Provide signature key (afe-...)" style="flex: 1; padding: 0.5rem 1rem; margin-bottom: 0; font-size: 0.85rem; height: 38px; background: transparent; border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); outline: none;">
-              <button id="saveKeyBtn" class="action-btn" style="font-size: 0.9rem; padding: 0.5rem 1.5rem; height: 38px;">Save Signature</button>
+        <div class="intel-card-header">
+          <span>INFERENCE_ENGINE_TELEMETRY // LIVE_NODE</span>
+          <span>SECURE_CHANNEL: ACTIVE</span>
+        </div>
+        <div class="intel-card-body" style="padding:0;">
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 1px solid var(--border);">
+            <div style="padding: 1.5rem 2rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+              <div class="mono-label">Core Inference Pipeline</div>
+              <div style="font-family: var(--font-display); font-size: 1.8rem; color: var(--primary); margin-top: 0.5rem; text-transform: uppercase;">Stable [Localhost]</div>
             </div>
-            <div id="saveStatus" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin-top: 0.5rem;"></div>
+            <div style="padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);">
+              <div class="mono-label">Memory Allocation</div>
+              <div style="font-family: var(--font-display); font-size: 1.8rem; color: var(--text-primary); margin-top: 0.5rem; text-transform: uppercase;">1.2GB / 16.0GB</div>
+            </div>
+            <div style="padding: 1.5rem 2rem; border-right: 1px solid var(--border);">
+              <div class="mono-label">Adversarial Router</div>
+              <div style="font-family: var(--font-display); font-size: 1.8rem; color: var(--secondary); margin-top: 0.5rem; text-transform: uppercase;">Active [Ollama/HF]</div>
+            </div>
+            <div style="padding: 1.5rem 2rem;">
+               <div class="mono-label">System Uptime</div>
+               <div style="font-family: var(--font-display); font-size: 1.8rem; color: var(--text-primary); margin-top: 0.5rem; text-transform: uppercase;">142H 22M 01S</div>
+            </div>
+          </div>
+          
+          <div style="padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <div class="mono-label">Cryptographic Token Credentials</div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">Generate an administrative developer signature signature token directly from the active node.</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <button id="genKeyBtn" class="action-btn" style="font-size: 0.7rem; padding: 0.5rem 1.5rem;">GENERATE_KEY</button>
+                <span id="keyDisplay" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--secondary); font-weight: bold;"></span>
+              </div>
+            </div>
+            
+            <div style="border-top: 1px solid var(--border); padding-top: 1.5rem;">
+              <div class="mono-label" style="margin-bottom: 0.75rem;">Active Signature Key Override</div>
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <input id="manualKeyInput" type="password" placeholder="Provide signature key (afe-...)" style="flex: 1; min-width: 250px; margin-bottom: 0; padding: 0.75rem 1.25rem;">
+                <button id="saveKeyBtn" class="action-btn" style="font-size: 0.75rem; padding: 0.5rem 2rem;">Save Signature</button>
+              </div>
+              <div id="saveStatus" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin-top: 0.5rem;"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
     
     <div id="pipeline" class="tab-content">
-      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">PIPELINE_ARCHITECTURE</h2>
-      <p style="color: var(--text-secondary);">Visualization of the adversarial logic gates currently under construction.</p>
+      <div class="hero-metadata">
+        <span>SCHEMATIC: ATTRITION_SYSTEM_v1.0</span>
+        <span>PIPELINE_GATES: 05_ACTIVE</span>
+      </div>
+      <h1 class="hero-title" style="margin-bottom:1.5rem;">PIPELINE<br><span>GATEWAY</span></h1>
+      <p class="body-text" style="margin-bottom:3rem;">[ LOGIC_ARCHITECTURE ] Functional overview of the multi-layered adversarial pipeline executing during execution runs.</p>
+      
+      <div style="display: grid; gap: 1.5rem;">
+        <div class="intel-card" style="margin-bottom: 0;">
+          <div class="intel-card-header">
+            <span>STAGE_01 // CONSENSUS_BASELINE</span>
+            <span style="color: var(--primary);">GATING: INITIALIZED</span>
+          </div>
+          <div class="intel-card-body" style="padding: 1.5rem 2rem;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Deconstructs the target proposal using LLM parsing, mapping out logical baselines and assigning consensus pressure indicators to baseline strategic claims.</p>
+          </div>
+        </div>
+        <div class="intel-card" style="margin-bottom: 0;">
+          <div class="intel-card-header">
+            <span>STAGE_02 // ADVERSARIAL_LENSES</span>
+            <span style="color: var(--primary);">GATING: ACTIVE</span>
+          </div>
+          <div class="intel-card-body" style="padding: 1.5rem 2rem;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Applies 12 distinct multi-agent reasoning lenses (First Principles, Inversion, Constraints, etc.) to stress-test target claims from counter-consensus angles.</p>
+          </div>
+        </div>
+        <div class="intel-card" style="margin-bottom: 0;">
+          <div class="intel-card-header">
+            <span>STAGE_03 // VALIDITY_VERIFICATION</span>
+            <span style="color: var(--primary);">GATING: ACTIVE</span>
+          </div>
+          <div class="intel-card-body" style="padding: 1.5rem 2rem;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Scores adversarial options using quantitative vectors across Novelty, Feasibility, Systemic Risk, and Expected Strategic Impact.</p>
+          </div>
+        </div>
+        <div class="intel-card" style="margin-bottom: 0;">
+          <div class="intel-card-header">
+            <span>STAGE_04 // CRITIQUE_ISOLATION</span>
+            <span style="color: var(--primary);">GATING: ACTIVE</span>
+          </div>
+          <div class="intel-card-body" style="padding: 1.5rem 2rem;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Exposes systemic vulnerabilities, identifies critical failure modes, and calculates potential confidence drops for each alternative approach.</p>
+          </div>
+        </div>
+        <div class="intel-card" style="margin-bottom: 0;">
+          <div class="intel-card-header">
+            <span>STAGE_05 // RANKED_MANIFEST</span>
+            <span style="color: var(--primary);">GATING: READY</span>
+          </div>
+          <div class="intel-card-body" style="padding: 1.5rem 2rem;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Applies multi-dimensional weighted sorting to compile an executive manifest, caching outputs to the secure administrative database vault.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="outputs" class="tab-content">
-      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">ARCHIVED_OUTPUTS</h2>
-      <p style="color: var(--text-secondary);">Historical analysis results will be indexed here.</p>
+      <div class="hero-metadata">
+        <span>DATABASE: LOCAL_INDEX</span>
+        <span>RECORDS: 03_DECRYPTED</span>
+      </div>
+      <h1 class="hero-title" style="margin-bottom:1.5rem;">VAULT<br><span>INDEX</span></h1>
+      <p class="body-text" style="margin-bottom:3rem;">[ DECISION_VAULT ] Browse active administrative records, cached intelligence payloads, and securely share strategic reports.</p>
+      
+      <div class="intel-card">
+        <div class="intel-card-header">
+          <span>ARCHIVED_REPORTS // DECRYPTED</span>
+          <span>SECURE_STORAGE</span>
+        </div>
+        <div class="intel-card-body" style="padding: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>RECORD_ID</th>
+                <th>TARGET_PROBLEM</th>
+                <th>DOMAIN</th>
+                <th>TOP_APPROACH</th>
+                <th>SCORE</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--secondary);">REF-409-DE</td>
+                <td style="font-weight: 600;">Remote work reduces organic company productivity</td>
+                <td style="font-family: var(--font-mono); font-size: 0.7rem;">GENERAL</td>
+                <td>Asynchronous Output Incentives</td>
+                <td style="font-family: var(--font-mono); font-weight: bold; color: var(--primary);">0.841</td>
+                <td><a href="/static/dashboard.html" class="btn secondary" style="font-size: 0.6rem; padding: 0.3rem 0.8rem; border-color: var(--border);">EXPLORE</a></td>
+              </tr>
+              <tr>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--secondary);">REF-709-DF</td>
+                <td style="font-weight: 600;">Traditional financial structures prevent rapid scaling</td>
+                <td style="font-family: var(--font-mono); font-size: 0.7rem;">FINANCE</td>
+                <td>Fragmented Liquidity Isolation</td>
+                <td style="font-family: var(--font-mono); font-weight: bold; color: var(--primary);">0.729</td>
+                <td><a href="/static/dashboard.html" class="btn secondary" style="font-size: 0.6rem; padding: 0.3rem 0.8rem; border-color: var(--border);">EXPLORE</a></td>
+              </tr>
+              <tr>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--secondary);">REF-902-EA</td>
+                <td style="font-weight: 600;">Artificial intelligence renders software engineering obsolete</td>
+                <td style="font-family: var(--font-mono); font-size: 0.7rem;">TECH</td>
+                <td>Architectural Logic Verification</td>
+                <td style="font-family: var(--font-mono); font-weight: bold; color: var(--primary);">0.912</td>
+                <td><a href="/static/dashboard.html" class="btn secondary" style="font-size: 0.6rem; padding: 0.3rem 0.8rem; border-color: var(--border);">EXPLORE</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div id="logs" class="tab-content">
-      <h2 style="font-family: var(--font-display); font-size: 3rem; margin-bottom: 2rem;">SYSTEM_LOGS</h2>
-      <div style="background: #111; padding: 1.5rem; font-family: var(--font-mono); font-size: 0.7rem; color: #555;">
-        <p>[21:15:11] INF: Connection established with HF_ROUTER</p>
-        <p>[21:15:12] INF: Loading model: adversarial-framing-v1</p>
-        <p>[21:30:04] WRN: Latency spike detected on node_03</p>
-        <p>[21:33:43] INF: UI Refresh sequence initiated</p>
+      <div class="hero-metadata">
+        <span>SYS_LOGGER: VERBOSE</span>
+        <span>TELEMETRY_PORT: 8000</span>
+      </div>
+      <h1 class="hero-title" style="margin-bottom:1.5rem;">TELEMETRY<br><span>LOGGER</span></h1>
+      <p class="body-text" style="margin-bottom:3rem;">[ INFRASTRUCTURE_LOGGER ] Real-time operational feedback, remote model calls, API synchronization records, and telemetry outputs.</p>
+      
+      <div class="intel-card">
+        <div class="intel-card-header">
+          <span>LIVE_SYSTEM_LOGGER // PORT_8000</span>
+          <span style="color: var(--primary);">LISTENING</span>
+        </div>
+        <div class="intel-card-body" style="background: rgba(0, 0, 0, 0.4); padding: 1.5rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.8; color: var(--text-secondary); max-height: 400px; overflow-y: auto; border: 1px solid var(--border);">
+          <div><span style="color: var(--primary);">[21:15:11] INF:</span> Connection established with HF_ROUTER // Secure HTTPS channel initialized.</div>
+          <div><span style="color: var(--primary);">[21:15:12] INF:</span> Loading model pipeline: adversarial-framing-v1-pro (qwen2.5-coder:7b fallback local).</div>
+          <div><span style="color: var(--secondary);">[21:30:04] WRN:</span> Latency spike detected on Ollama inference server node_03 [11434]. Retrying query manifest...</div>
+          <div><span style="color: var(--primary);">[21:30:06] INF:</span> Query manifest verified. Latency returned to baseline (184ms).</div>
+          <div><span style="color: var(--primary);">[21:33:43] INF:</span> UI Refresh sequence initiated. Decrypted assets successfully mapped to active virtual window layout.</div>
+          <div><span style="color: var(--primary);">[21:40:02] INF:</span> Synchronization sequence complete. Active session 7619-7031-9534-8828 synced with database vault.</div>
+        </div>
       </div>
     </div>
 
@@ -539,8 +562,16 @@ document.addEventListener('DOMContentLoaded', () => {
       genKeyBtn.disabled = true;
       genKeyBtn.textContent = 'GENERATING...';
       try {
-        const r = await fetch('/v1/keys', {method: 'POST'});
+        const r = await fetch('/v1/keys', {method: 'POST', credentials: 'include'});
         const j = await r.json();
+        if (!r.ok) {
+          const message = j?.error?.message || j?.detail || 'Authentication required';
+          if (r.status === 401 || r.status === 403) {
+            window.location.href = '/auth?next=/';
+            return;
+          }
+          throw new Error(message);
+        }
         document.getElementById('keyDisplay').textContent = ' [' + (j.key || 'ERR') + '] (AUTO_SAVED)';
         genKeyBtn.textContent = 'KEY_ISSUED';
         
@@ -653,31 +684,112 @@ async function run(){
           
           let html = `
           <div class="intel-card" style="border-color: var(--primary);">
-            <div class="intel-card-header" style="background: var(--primary);">
-               <span>CONSENSUS_BASELINE</span>
-               <span>VERIFIED</span>
+            <div class="intel-card-header">
+               <span>CONSENSUS_BASELINE // TARGET_INTELLIGENCE</span>
+               <span style="color: var(--secondary);">PRESSURE: ${esc(res.consensus.pressure_label || 'MODERATE')}</span>
             </div>
-            <div class="intel-card-body">
-               <p style="font-size: 1.1rem; line-height: 1.8;">${esc(res.consensus.consensus)}</p>
+            <div class="intel-card-body" style="padding: 2.5rem 2rem;">
+               <p style="font-size: 1.15rem; line-height: 1.8; color: var(--text-primary); border-left: 2px solid var(--primary); padding-left: 1.5rem; font-family: var(--font-sans);">${esc(res.consensus.consensus)}</p>
             </div>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin: 2rem 0 1rem; letter-spacing: 0.2em;">> ADVERSARIAL_VECTORS_DETECTED</div>
+          <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin: 3rem 0 1.5rem; letter-spacing: 0.2em; display: flex; align-items: center; gap: 0.5rem;">
+            <span>> ADVERSARIAL_VECTORS_DETECTED</span>
+            <span style="flex: 1; height: 1px; background: var(--border);"></span>
+          </div>
           `;
           
           res.ranked.forEach((r, idx) => {
-            const color = idx === 0 ? 'var(--secondary)' : 'var(--primary)';
+            const colorClass = idx === 0 ? 'color: var(--secondary);' : 'color: var(--primary);';
+            const accentColor = idx === 0 ? 'var(--secondary)' : 'var(--primary)';
+            const borderStyle = idx === 0 ? 'border-color: var(--secondary);' : 'border-color: var(--border);';
+            
+            const weaknesses = Array.isArray(r.critique?.weaknesses) ? r.critique.weaknesses : [];
+            const failureModes = Array.isArray(r.critique?.failure_modes) ? r.critique.failure_modes : [];
+            
             html += `
-            <div class="intel-card" style="border-color: ${color};">
-              <div class="intel-card-header" style="background: ${color};">
-                 <span>VECTOR_${idx + 1}</span>
-                 <span>${idx === 0 ? 'CRITICAL' : 'ELEVATED'}</span>
+            <div class="intel-card" style="${borderStyle} margin-bottom: 2.5rem;">
+              <div class="intel-card-header" style="border-bottom: 1px solid var(--border);">
+                 <span style="${colorClass}">VECTOR_0${idx + 1} // ${esc(r.lens)}</span>
+                 <span style="font-family: var(--font-mono); font-size: 0.65rem; font-weight: 500; color: var(--text-muted);">
+                   COMPOSITE: <span style="${colorClass} font-weight: bold; font-size: 0.85rem;">${r.composite != null ? Number(r.composite).toFixed(3) : '-'}</span>
+                 </span>
               </div>
               <div class="intel-card-body">
-                <h3 style="font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; color: ${color};">${esc(r.approach)}</h3>
-                <p style="color: var(--text-secondary); font-size: 0.95rem;">${esc(r.reasoning||'')}</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                  <h3 style="font-family: var(--font-display); font-size: 1.8rem; margin: 0; line-height: 1.1; ${colorClass}">${esc(r.approach)}</h3>
+                </div>
+                
+                <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; border-left: 2px solid ${accentColor}; padding-left: 1.25rem; margin-bottom: 2rem;">${esc(r.reasoning||'')}</p>
+                
+                <!-- Telemetry Metrics Grid -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem 2rem; margin: 2rem 0; padding: 1.5rem; background: rgba(0, 0, 0, 0.15); border: 1px solid var(--border);">
+                  <div class="metric-progress-wrap">
+                    <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+                      <span style="color: var(--text-secondary);">NOVELTY</span>
+                      <span style="color: var(--primary);">${(r.scores?.novelty ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+                      <div style="height: 100%; background: var(--primary); width: ${(r.scores?.novelty ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+                    </div>
+                  </div>
+                  <div class="metric-progress-wrap">
+                    <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+                      <span style="color: var(--text-secondary);">FEASIBILITY</span>
+                      <span style="color: var(--primary);">${(r.scores?.feasibility ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+                      <div style="height: 100%; background: var(--primary); width: ${(r.scores?.feasibility ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+                    </div>
+                  </div>
+                  <div class="metric-progress-wrap">
+                    <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+                      <span style="color: var(--text-secondary);">RISK</span>
+                      <span style="color: var(--danger);">${(r.scores?.risk ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+                      <div style="height: 100%; background: var(--danger); width: ${(r.scores?.risk ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+                    </div>
+                  </div>
+                  <div class="metric-progress-wrap">
+                    <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+                      <span style="color: var(--text-secondary);">EXPECTED IMPACT</span>
+                      <span style="color: var(--secondary);">${(r.scores?.expected_impact ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+                      <div style="height: 100%; background: var(--secondary); width: ${(r.scores?.expected_impact ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Critique Details -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                  <div>
+                    <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin-bottom: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;">Identified Weaknesses</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                      ${weaknesses.map(w => `<span class="tag warn">${esc(w)}</span>`).join('') || '<span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);">NONE DETECTED</span>'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin-bottom: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;">Systemic Failure Modes</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                      ${failureModes.map(f => `<span class="tag fail">${esc(f)}</span>`).join('') || '<span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);">NONE DETECTED</span>'}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>`;
           });
+          
+          if (res.analysis_id) {
+            const shareUrl = window.location.origin + '/share/' + res.analysis_id;
+            html = `
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 2rem;">
+              <button id="copyShareBtn" class="action-btn" onclick="navigator.clipboard.writeText('${shareUrl}'); const oldText=this.textContent; this.textContent='SECURE LINK COPIED!'; setTimeout(() => this.textContent=oldText, 2000);" style="font-size: 0.7rem; padding: 0.6rem 1.5rem;">
+                COPY SECURE SHARE LINK
+              </button>
+            </div>
+            ` + html;
+          }
           
           out.innerHTML = html;
         }

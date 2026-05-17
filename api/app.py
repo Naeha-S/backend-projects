@@ -10,7 +10,7 @@ except ImportError:
     pass  # python-dotenv not installed; fall back to system env vars
 
 from typing import Any
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +19,9 @@ from pydantic import BaseModel, Field
 import auth
 import patterns
 from datetime import datetime
+from db import database_enabled, initialize_database
+from services import get_job_queue, get_r2_client, get_redis_client, r2_enabled, redis_enabled
+from settings import settings
 
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -28,6 +31,11 @@ LOGS_DIR = os.path.join(DATA_DIR, "logs")
 REQUEST_LOG_PATH = os.path.join(LOGS_DIR, "requests.log")
 
 DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:8000"]
+ACCESS_COOKIE_NAME = "afe_access"
+REFRESH_COOKIE_NAME = "afe_refresh"
+REAUTH_COOKIE_NAME = "afe_reauth"
+COOKIE_SAMESITE = "lax"
+COOKIE_SECURE = settings.cookie_secure
 
 
 def parse_allowed_origins() -> list[str]:
@@ -65,6 +73,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
     expose_headers=["X-Request-ID", "X-Calls-Total", "X-RateLimit-Remaining"],
@@ -227,8 +236,78 @@ class AnalyzeRequest(BaseModel):
     }
 
 
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    totp_code: str | None = None
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class TotpCodeRequest(BaseModel):
+    code: str
+
+
+class ReauthRequest(BaseModel):
+    password: str
+    totp_code: str | None = None
+
+
 class ApiKeyResponse(BaseModel):
     key: str
+
+
+class AuthUserResponse(BaseModel):
+    id: str
+    email: str
+    email_verified: bool
+    mfa_enabled: bool
+    security_tier: str
+    created_at: str | None = None
+    last_login_at: str | None = None
+
+
+class SessionInfoResponse(BaseModel):
+    id: str
+    created_at: str | None = None
+    last_seen_at: str | None = None
+    expires_at: str | None = None
+    revoked_at: str | None = None
+    ip: str | None = None
+    user_agent: str | None = None
+    mfa_verified: bool = False
+    active: bool = False
+
+
+class AuthSessionResponse(BaseModel):
+    user: AuthUserResponse
+    session: SessionInfoResponse
+    email_verification_token: str | None = None
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class VerificationTokenResponse(MessageResponse):
+    token: str
+
+
+class SessionsListResponse(BaseModel):
+    current_session_id: str
+    sessions: list[SessionInfoResponse]
+
+
+class MfaSetupResponse(BaseModel):
+    secret: str
+    otpauth_url: str
 
 
 class UsageResponse(BaseModel):
@@ -359,6 +438,88 @@ def validate_api_key_or_raise(request: Request) -> str:
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized.")
 
 
+def _client_ip(request: Request) -> str | None:
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    if forwarded:
+        return forwarded
+    if request.client:
+        return request.client.host
+    return None
+
+
+def _set_cookie(response: Response, name: str, value: str, max_age: int):
+    response.set_cookie(
+        key=name,
+        value=value,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=max_age,
+        expires=max_age,
+        path="/",
+    )
+
+
+def clear_auth_cookies(response: Response):
+    response.delete_cookie(ACCESS_COOKIE_NAME, path="/", httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
+    response.delete_cookie(REFRESH_COOKIE_NAME, path="/", httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
+    response.delete_cookie(REAUTH_COOKIE_NAME, path="/", httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
+
+
+def attach_auth_cookies(response: Response, user_id: str, session: dict, refresh_token: str):
+    access_token = auth.create_access_token(user_id, session["id"], bool(session.get("mfa_verified")))
+    _set_cookie(response, ACCESS_COOKIE_NAME, access_token, auth.ACCESS_TOKEN_TTL_SECONDS)
+    _set_cookie(response, REFRESH_COOKIE_NAME, refresh_token, auth.REFRESH_TOKEN_TTL_SECONDS)
+
+
+def attach_reauth_cookie(response: Response, token: str):
+    _set_cookie(response, REAUTH_COOKIE_NAME, token, auth.REAUTH_TTL_SECONDS)
+
+
+def current_user_and_session(request: Request) -> tuple[dict, dict, dict]:
+    payload = auth.verify_access_token(request.cookies.get(ACCESS_COOKIE_NAME))
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
+    user = auth.get_user(payload.get("sub"))
+    session = auth.get_session(payload.get("sid"))
+    if not user or not session or not session.get("id") or session.get("user_id") != user.get("id"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is invalid.")
+    if not auth.session_active(session):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked.")
+    return user, session, payload
+
+
+def require_verified_user(request: Request) -> tuple[dict, dict, dict]:
+    user, session, payload = current_user_and_session(request)
+    if not user.get("email_verified"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email verification required.")
+    return user, session, payload
+
+
+def require_recent_reauth(request: Request, user_id: str, session_id: str):
+    token = request.cookies.get(REAUTH_COOKIE_NAME)
+    if not token or not auth.verify_reauth_token(token, user_id, session_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Recent re-authentication required.")
+
+
+def auth_session_payload(user: dict, session: dict, verification_token: str | None = None) -> dict:
+    return {
+        "user": auth.public_user(user["id"]),
+        "session": {
+            "id": session.get("id"),
+            "created_at": session.get("created_at"),
+            "last_seen_at": session.get("last_seen_at"),
+            "expires_at": session.get("expires_at"),
+            "revoked_at": session.get("revoked_at"),
+            "ip": session.get("ip"),
+            "user_agent": session.get("user_agent"),
+            "mfa_verified": bool(session.get("mfa_verified")),
+            "active": auth.session_active(session),
+        },
+        "email_verification_token": verification_token,
+    }
+
+
 def validate_optional_stripe_key(name: str, value: str | None, prefix: str) -> str:
     if not value:
         return f"{name}: missing"
@@ -370,7 +531,13 @@ def validate_optional_stripe_key(name: str, value: str | None, prefix: str) -> s
 def startup_summary_lines() -> list[str]:
     origins_source = "configured" if os.environ.get("ALLOWED_ORIGINS") else "default_fallback"
     lines = [
+        f"APP_ENV: {settings.app_env}",
         f"ALLOWED_ORIGINS ({origins_source}): {', '.join(ALLOWED_ORIGINS)}",
+        "DATABASE_URL: configured" if settings.database_url else "DATABASE_URL: missing",
+        "AUTH_TOKEN_SECRET: configured" if settings.auth_token_secret else "AUTH_TOKEN_SECRET: missing",
+        "REDIS: configured" if redis_enabled() else "REDIS: missing",
+        "R2: configured" if r2_enabled() else "R2: missing",
+        f"JOB_QUEUE_NAME: {settings.job_queue_name}",
         "HF_TOKEN: configured" if os.environ.get("HF_TOKEN") else "HF_TOKEN: missing",
         "OLLAMA_URL: configured" if (os.environ.get("OLLAMA_URL") or os.environ.get("OLLAMA_HOST")) else "OLLAMA_URL: missing",
         "ANTHROPIC_API_KEY: configured" if os.environ.get("ANTHROPIC_API_KEY") else "ANTHROPIC_API_KEY: missing",
@@ -387,6 +554,11 @@ async def on_startup():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(ANALYSES_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
+    if database_enabled():
+        initialize_database()
+    _ = get_redis_client()
+    _ = get_job_queue()
+    _ = get_r2_client()
     print("[startup] Adversarial Framing Engine API", flush=True)
     for line in startup_summary_lines():
         print(f"[startup] {line}", flush=True)
@@ -430,6 +602,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     code_map = {
         400: "bad_request",
         401: "unauthorized",
+        403: "forbidden",
         404: "not_found",
         429: "rate_limited",
     }
@@ -1586,6 +1759,19 @@ async def dashboard():
 
 
 @app.get(
+    "/auth",
+    response_model=None,
+    response_class=HTMLResponse,
+    summary="Serve auth UI",
+    description="Returns the authentication console for signup, login, verification, MFA, and secure key generation.",
+    tags=["ui"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_console():
+    return load_static_html("auth.html")
+
+
+@app.get(
     "/patterns",
     response_model=None,
     response_class=HTMLResponse,
@@ -1602,16 +1788,239 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.post(
-    "/v1/keys",
-    response_model=ApiKeyResponse,
-    summary="Create API key",
-    description="Generates a new free-tier API key.",
+    "/auth/signup",
+    response_model=AuthSessionResponse,
+    summary="Create account",
+    description="Registers a user with email and password, creates a signed session, and returns an email verification token.",
     tags=["auth"],
     responses=COMMON_ERROR_RESPONSES,
 )
-async def v1_keys():
-    # Generate a new free key; return it once
-    key = auth.generate_key(tier="free")
+async def auth_signup(request: Request, body: SignupRequest, response: Response):
+    ok, result = auth.create_user(body.email, body.password)
+    if not ok:
+        reasons = {
+            "invalid_email": "A valid email address is required.",
+            "weak_password": "Password must be at least 10 characters.",
+            "email_taken": "An account with that email already exists.",
+        }
+        raise HTTPException(status_code=400, detail=reasons.get(result.get("reason"), "Unable to create account."))
+    user = auth.get_user(result["user"]["id"])
+    verification_token = auth.create_email_verification_token(user["id"])
+    refresh_token, session = auth.create_session(
+        user["id"],
+        ip=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        mfa_verified=False,
+    )
+    attach_auth_cookies(response, user["id"], session, refresh_token)
+    return auth_session_payload(user, session, verification_token)
+
+
+@app.post(
+    "/auth/login",
+    response_model=AuthSessionResponse,
+    summary="Log in",
+    description="Authenticates a user with email and password, optionally requiring TOTP when MFA is enabled.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_login(request: Request, body: LoginRequest, response: Response):
+    ok, result = auth.authenticate_user(body.email, body.password)
+    if not ok:
+        if result.get("reason") == "locked":
+            raise HTTPException(status_code=429, detail=f"Account locked until {result.get('locked_until')}.")
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    user = result["user"]
+    mfa = user.get("mfa") or {}
+    if mfa.get("enabled"):
+        if not auth.verify_totp(mfa.get("secret", ""), body.totp_code or ""):
+            raise HTTPException(status_code=401, detail="Valid TOTP code required.")
+    auth.complete_login_success(user["id"])
+    user = auth.get_user(user["id"])
+    verification_token = None if user.get("email_verified") else auth.create_email_verification_token(user["id"])
+    refresh_token, session = auth.create_session(
+        user["id"],
+        ip=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        mfa_verified=bool(mfa.get("enabled")),
+    )
+    attach_auth_cookies(response, user["id"], session, refresh_token)
+    return auth_session_payload(user, session, verification_token)
+
+
+@app.post(
+    "/auth/refresh",
+    response_model=AuthSessionResponse,
+    summary="Refresh session",
+    description="Rotates the refresh token and issues a new short-lived access token.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_refresh(request: Request, response: Response):
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing.")
+    ok, result = auth.rotate_refresh_session(refresh_token, _client_ip(request), request.headers.get("user-agent"))
+    if not ok:
+        raise HTTPException(status_code=401, detail="Refresh token is invalid or expired.")
+    session = result["session"]
+    user = auth.get_user(session["user_id"])
+    if not user:
+        clear_auth_cookies(response)
+        raise HTTPException(status_code=401, detail="Session user no longer exists.")
+    attach_auth_cookies(response, user["id"], session, result["refresh_token"])
+    return auth_session_payload(user, session)
+
+
+@app.post(
+    "/auth/logout",
+    response_model=MessageResponse,
+    summary="Log out",
+    description="Revokes the current refresh session and clears auth cookies.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_logout(request: Request, response: Response):
+    payload = auth.verify_access_token(request.cookies.get(ACCESS_COOKIE_NAME))
+    if payload:
+        auth.revoke_session(payload.get("sid"))
+    clear_auth_cookies(response)
+    return {"message": "Logged out."}
+
+
+@app.get(
+    "/auth/me",
+    response_model=AuthSessionResponse,
+    summary="Get current session",
+    description="Returns the current authenticated user and session metadata from the access cookie.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_me(request: Request):
+    user, session, _ = current_user_and_session(request)
+    return auth_session_payload(user, session)
+
+
+@app.post(
+    "/auth/email-verification/request",
+    response_model=VerificationTokenResponse,
+    summary="Request email verification",
+    description="Creates a fresh verification token for the current authenticated account.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_request_email_verification(request: Request):
+    user, _, _ = current_user_and_session(request)
+    token = auth.create_email_verification_token(user["id"])
+    return {"message": "Verification token issued.", "token": token}
+
+
+@app.post(
+    "/auth/email-verification/verify",
+    response_model=AuthUserResponse,
+    summary="Verify email",
+    description="Marks the current account email as verified using a time-limited verification token.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_verify_email(body: VerifyEmailRequest):
+    ok, result = auth.verify_email_token(body.token)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Verification token is invalid, expired, or already used.")
+    return result["user"]
+
+
+@app.post(
+    "/auth/mfa/setup",
+    response_model=MfaSetupResponse,
+    summary="Start TOTP setup",
+    description="Creates a pending TOTP secret for the authenticated account.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_mfa_setup(request: Request):
+    user, _, _ = require_verified_user(request)
+    ok, result = auth.start_mfa_setup(user["id"])
+    if not ok:
+        raise HTTPException(status_code=400, detail="Unable to start MFA setup.")
+    return result
+
+
+@app.post(
+    "/auth/mfa/confirm",
+    response_model=AuthUserResponse,
+    summary="Confirm TOTP setup",
+    description="Verifies a TOTP code and enables MFA for the authenticated account.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_mfa_confirm(request: Request, body: TotpCodeRequest):
+    user, _, _ = require_verified_user(request)
+    ok, result = auth.confirm_mfa_setup(user["id"], body.code)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Invalid TOTP code.")
+    return result["user"]
+
+
+@app.post(
+    "/auth/reauth",
+    response_model=MessageResponse,
+    summary="Re-authenticate sensitive action",
+    description="Revalidates password and TOTP, then issues a short-lived re-auth cookie for sensitive endpoints.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_reauth(request: Request, body: ReauthRequest, response: Response):
+    user, session, _ = current_user_and_session(request)
+    if not auth.authenticate_user(user["email"], body.password)[0]:
+        raise HTTPException(status_code=401, detail="Password challenge failed.")
+    mfa = user.get("mfa") or {}
+    if mfa.get("enabled") and not auth.verify_totp(mfa.get("secret", ""), body.totp_code or ""):
+        raise HTTPException(status_code=401, detail="Valid TOTP code required.")
+    token = auth.create_reauth_token(user["id"], session["id"])
+    attach_reauth_cookie(response, token)
+    return {"message": "Re-authentication complete."}
+
+
+@app.get(
+    "/auth/sessions",
+    response_model=SessionsListResponse,
+    summary="List sessions",
+    description="Returns all sessions associated with the current account.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_sessions(request: Request):
+    user, session, _ = current_user_and_session(request)
+    return {"current_session_id": session["id"], "sessions": auth.list_sessions(user["id"])}
+
+
+@app.post(
+    "/auth/sessions/logout-all",
+    response_model=MessageResponse,
+    summary="Log out all other sessions",
+    description="Revokes every refresh session for the current user except the active one.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def auth_logout_all_sessions(request: Request):
+    user, session, _ = current_user_and_session(request)
+    auth.revoke_all_sessions(user["id"], except_session_id=session["id"])
+    return {"message": "All other sessions revoked."}
+
+
+@app.post(
+    "/v1/keys",
+    response_model=ApiKeyResponse,
+    summary="Create API key",
+    description="Generates a new free-tier API key for the authenticated, verified user after recent re-authentication.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def v1_keys(request: Request):
+    user, session, _ = require_verified_user(request)
+    require_recent_reauth(request, user["id"], session["id"])
+    key = auth.generate_key(name=user["email"], tier="free", owner_user_id=user["id"])
     return {"key": key}
 
 

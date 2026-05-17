@@ -49,6 +49,9 @@
       <a href="/" class="rail-link global">
         <span class="rail-num">SYS</span> Engine Core
       </a>
+      <a href="/auth" class="rail-link global">
+        <span class="rail-num">ATH</span> Auth
+      </a>
       <a href="/static/dashboard.html" class="rail-link global active">
         <span class="rail-num">DSH</span> Dashboard
       </a>
@@ -298,21 +301,45 @@ function renderDetail(record) {
       </div>
       
       <p class="body-text mb-2" style="max-width: 100%; border-left-color: ${idx === 0 ? 'var(--secondary)' : 'var(--primary)'}">${esc(item.reasoning)}</p>
-      
-      <table class="data-table mb-2">
-        <tr>
-          <th>Novelty</th>
-          <th>Feasibility</th>
-          <th>Risk</th>
-          <th>Expected Impact</th>
-        </tr>
-        <tr>
-          <td>${item.scores?.novelty}</td>
-          <td>${item.scores?.feasibility}</td>
-          <td>${item.scores?.risk}</td>
-          <td>${item.scores?.expected_impact}</td>
-        </tr>
-      </table>
+      <!-- Telemetry Metrics Grid -->
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem 2rem; margin: 2rem 0; padding: 1.5rem; background: rgba(0, 0, 0, 0.15); border: 1px solid var(--border);">
+        <div class="metric-progress-wrap">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+            <span style="color: var(--text-secondary);">NOVELTY</span>
+            <span style="color: var(--primary);">${(item.scores?.novelty ?? 0).toFixed(2)}</span>
+          </div>
+          <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+            <div style="height: 100%; background: var(--primary); width: ${(item.scores?.novelty ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+          </div>
+        </div>
+        <div class="metric-progress-wrap">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+            <span style="color: var(--text-secondary);">FEASIBILITY</span>
+            <span style="color: var(--primary);">${(item.scores?.feasibility ?? 0).toFixed(2)}</span>
+          </div>
+          <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+            <div style="height: 100%; background: var(--primary); width: ${(item.scores?.feasibility ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+          </div>
+        </div>
+        <div class="metric-progress-wrap">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+            <span style="color: var(--text-secondary);">RISK</span>
+            <span style="color: var(--danger);">${(item.scores?.risk ?? 0).toFixed(2)}</span>
+          </div>
+          <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+            <div style="height: 100%; background: var(--danger); width: ${(item.scores?.risk ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+          </div>
+        </div>
+        <div class="metric-progress-wrap">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.65rem; margin-bottom: 0.4rem; font-weight: 600;">
+            <span style="color: var(--text-secondary);">EXPECTED IMPACT</span>
+            <span style="color: var(--secondary);">${(item.scores?.expected_impact ?? 0).toFixed(2)}</span>
+          </div>
+          <div style="height: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); width: 100%;">
+            <div style="height: 100%; background: var(--secondary); width: ${(item.scores?.expected_impact ?? 0) * 100}%; transition: width 0.6s ease;"></div>
+          </div>
+        </div>
+      </div>
 
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; margin-top: 1.5rem;">
         <div style="padding-right: 1rem; border-right: 1px solid var(--border);">
