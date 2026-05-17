@@ -9,7 +9,7 @@ This project is now standardizing on the stack that fits the current codebase:
 - ORM: SQLAlchemy
 - Auth: Python-native auth in FastAPI
 - Rate limiting / queue backing: Redis or Upstash Redis
-- Object storage: Cloudflare R2
+- Object storage: Backblaze B2 free tier or other S3-compatible storage
 - Background jobs: Python worker backed by Redis + RQ
 - Hosting: Railway
 
@@ -26,11 +26,11 @@ The repo now contains the first layer of infrastructure for this stack:
 - [models.py](/abs/path/c:/Users/NAEHA/Desktop/projects/api/models.py:1)
   Initial ORM models for users, sessions, tokens, API keys, analyses, and audit events.
 - [services.py](/abs/path/c:/Users/NAEHA/Desktop/projects/api/services.py:1)
-  Redis, R2, and RQ client factories.
+  Redis, object storage, and RQ client factories.
 - [.env.example](/abs/path/c:/Users/NAEHA/Desktop/projects/api/.env.example:1)
   Environment template for the new stack.
 - [app.py](/abs/path/c:/Users/NAEHA/Desktop/projects/api/app.py:377)
-  Startup now reports DB/Redis/R2/job config state and initializes SQLAlchemy tables if `DATABASE_URL` is present.
+  Startup now reports DB/Redis/object storage/job config state and initializes SQLAlchemy tables if `DATABASE_URL` is present.
 
 Important: the repo still uses JSON-backed auth and analysis storage at runtime today. The new DB layer is added so we can migrate cleanly without re-architecting again.
 
@@ -41,7 +41,7 @@ Important: the repo still uses JSON-backed auth and analysis storage at runtime 
 - FastAPI remains the primary backend.
 - Python-native auth exists in the app.
 - SQLAlchemy foundation is added.
-- Redis / R2 / RQ service factories are added.
+- Redis / object storage / RQ service factories are added.
 - Environment template is added.
 - Startup is wired for the new infra.
 
@@ -54,7 +54,7 @@ Important: the repo still uses JSON-backed auth and analysis storage at runtime 
 - Add Redis-backed rate limiting to login and API-key actions.
 - Add real outbound email delivery for verification and reset flows.
 - Add background workers for email, export, and cleanup jobs.
-- Add R2-backed artifact/report storage.
+- Add S3-compatible artifact/report storage.
 
 ## Dependencies now used
 
@@ -144,13 +144,13 @@ What Redis will own:
 - background queue transport
 - short-lived cached state
 
-### 3. Cloudflare R2
+### 3. Backblaze B2 or other S3-compatible storage
 
 What you do:
 
-1. Create an R2 bucket.
+1. Create a Backblaze B2 bucket, or another S3-compatible bucket with a free tier.
 2. Create API credentials.
-3. Fill the R2 env vars.
+3. Fill the storage env vars.
 
 Required values:
 
@@ -158,10 +158,12 @@ Required values:
 R2_BUCKET=...
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
-R2_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+R2_ENDPOINT=https://s3.<region>.backblazeb2.com
 ```
 
-What R2 should store:
+The code still uses the `R2_` env var names for compatibility, but the endpoint can point at Backblaze B2 or another S3-compatible provider.
+
+What the storage bucket should store:
 
 - exported reports
 - uploaded files
@@ -181,7 +183,7 @@ What you do:
 Recommended Railway services:
 
 - `api`
-  Runs `uvicorn app:app --host 0.0.0.0 --port $PORT`
+  Runs `python -m uvicorn main:app --host 0.0.0.0 --port $PORT`
 - `worker`
   Runs `rq worker afe-default`
 
@@ -233,7 +235,7 @@ Use local Docker services or managed cloud services.
 ### 4. Start the app
 
 ```powershell
-uvicorn app:app --reload
+python -m uvicorn main:app --reload
 ```
 
 ### 5. Optional: start worker
@@ -272,9 +274,9 @@ Add Redis-backed throttles for:
 
 Move verification token handling out of the browser and into real outbound email jobs.
 
-### Phase 5: R2 artifact storage
+### Phase 5: S3-compatible artifact storage
 
-Move large or shareable exports to R2 instead of local files.
+Move large or shareable exports to the S3-compatible bucket instead of local files.
 
 ## Operational notes
 
@@ -291,7 +293,7 @@ I can continue with one of these implementation steps immediately:
 1. Migrate `auth.py` from JSON storage to SQLAlchemy/Postgres.
 2. Migrate saved analyses from filesystem storage to Postgres.
 3. Add Redis-backed rate limiting to the auth endpoints.
-4. Add R2-backed upload/export utilities.
+4. Add S3-compatible upload/export utilities.
 5. Add an RQ worker entrypoint and first background jobs.
 
 The most important next step is `1`, because the current auth system still persists to local JSON files.

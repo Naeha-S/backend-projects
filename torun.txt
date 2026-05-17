@@ -11,7 +11,7 @@ To run the Adversarial Framing Engine locally with Ollama, follow these steps:
 
 3. Start the FastAPI backend:
    Open a new terminal in the project directory (c:\Users\NAEHA\Desktop\projects\api) and run:
-   .venv\Scripts\python -m uvicorn app:app --host 127.0.0.2 --port 8000
+   python -m uvicorn main:app --host 127.0.0.2 --port 8000
 
 4. Access the web interface:
    Open your web browser and go to http://127.0.0.2:8000
