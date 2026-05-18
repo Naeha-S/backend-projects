@@ -260,8 +260,48 @@ class ReauthRequest(BaseModel):
     totp_code: str | None = None
 
 
-class ApiKeyResponse(BaseModel):
-    key: str
+class ApiKeyCreateRequest(BaseModel):
+    name: str = "default"
+    environment: str = "live"
+    scopes: list[str] = Field(default_factory=lambda: ["read", "write"])
+    expires_at: str | None = None
+
+
+class ApiKeyRotateRequest(BaseModel):
+    name: str | None = None
+    expires_at: str | None = None
+
+
+class ApiKeyToggleRequest(BaseModel):
+    disabled: bool = True
+
+
+class ApiKeyRecordResponse(BaseModel):
+    id: str
+    name: str
+    environment: str
+    tier: str | None = None
+    scopes: list[str] = Field(default_factory=list)
+    masked_key: str | None = None
+    created_at: str | None = None
+    last_used_at: str | None = None
+    last_used_ip: str | None = None
+    expires_at: str | None = None
+    rotation_due_at: str | None = None
+    revoked_at: str | None = None
+    disabled_at: str | None = None
+    active: bool = False
+    rotation_required: bool = False
+    calls_today: int | None = None
+    calls_total: int | None = None
+
+
+class ApiKeyIssueResponse(ApiKeyRecordResponse):
+    plaintext_key: str
+
+
+class ApiKeyListResponse(BaseModel):
+    items: list[ApiKeyRecordResponse]
 
 
 class AuthUserResponse(BaseModel):
@@ -311,12 +351,23 @@ class MfaSetupResponse(BaseModel):
 
 
 class UsageResponse(BaseModel):
+    key_id: str | None = None
+    name: str | None = None
     tier: str | None = None
+    environment: str | None = None
+    scopes: list[str] = Field(default_factory=list)
+    masked_key: str | None = None
     calls_today: int | None = None
     calls_total: int | None = None
     calls_remaining: int | None = None
     limit_today: int | None = None
     member_since: str | None = None
+    last_used_at: str | None = None
+    last_used_ip: str | None = None
+    expires_at: str | None = None
+    rotation_due_at: str | None = None
+    revoked_at: str | None = None
+    disabled_at: str | None = None
 
 
 class AnalysisSummaryResponse(BaseModel):
@@ -413,7 +464,9 @@ def mask_api_key(value: str | None) -> str:
     if not value:
         return "-"
     cleaned = str(value).strip()
-    return cleaned[:8]
+    if cleaned.startswith(("pk_live_", "pk_test_")):
+        return f"{cleaned[:11]}...{cleaned[-4:]}"
+    return cleaned[:4] + "..."
 
 
 def error_payload(request: Request, code: str, message: str) -> dict:
@@ -424,17 +477,21 @@ def error_response(request: Request, status_code: int, code: str, message: str) 
     return JSONResponse(status_code=status_code, content=error_payload(request, code, message))
 
 
-def validate_api_key_or_raise(request: Request) -> str:
+def validate_api_key_or_raise(request: Request, *, required_scope: str | None = None) -> tuple[str, dict]:
     key = request.headers.get("x-api-key")
-    ok, info = auth.validate_key(key)
+    ok, info = auth.validate_key(key, ip=_client_ip(request))
     if ok:
-        return key
+        if required_scope and not auth.api_key_has_scope(info, required_scope):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key lacks required scope.")
+        return key, info
     if info == "missing":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API key.")
     if info == "invalid":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
     if info == "rate_limited":
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded.")
+    if info == "rotation_required":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key rotation required.")
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized.")
 
 
@@ -1031,18 +1088,36 @@ async def call_llm(client: Any, system: str, user: str) -> dict:
     if isinstance(client, dict) and client.get("type") == "ollama":
         url = client.get("url")
         model = client.get("model", "llama2")
-        async with httpx.AsyncClient() as ac:
+        request_payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "num_predict": 1500,
+            },
+        }
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as ac:
             # try common Ollama endpoints
-            tries = [f"{url}/api/generate", f"{url}/generate", url]
+            tries = [f"{url}/api/generate", f"{url}/api/chat", f"{url}/generate", url]
             for endpoint in tries:
                 try:
-                    r = await ac.post(
-                        endpoint,
-                        json={"model": model, "prompt": prompt, "max_tokens": 1500, "stream": False},
-                        timeout=45.0,
-                    )
-                except Exception:
-                    print(f"[ollama] request to {endpoint} raised exception")
+                    if endpoint.endswith("/api/chat"):
+                        r = await ac.post(
+                            endpoint,
+                            json={
+                                "model": model,
+                                "messages": [
+                                    {"role": "system", "content": system},
+                                    {"role": "user", "content": user},
+                                ],
+                                "stream": False,
+                                "options": {"num_predict": 1500},
+                            },
+                        )
+                    else:
+                        r = await ac.post(endpoint, json=request_payload)
+                except Exception as exc:
+                    print(f"[ollama] request to {endpoint} raised exception: {exc}")
                     continue
                 if r.status_code != 200:
                     print(f"[ollama] endpoint {endpoint} returned status {r.status_code}: {r.text[:400]}")
@@ -1055,6 +1130,10 @@ async def call_llm(client: Any, system: str, user: str) -> dict:
                     return parse_ollama_ndjson_text(text)
                 # common response fields
                 text = j.get("text") or j.get("response") or j.get("output") or j.get("result") or ""
+                if not text and endpoint.endswith("/api/chat"):
+                    message = j.get("message") or {}
+                    if isinstance(message, dict):
+                        text = message.get("content") or ""
                 if not text:
                     # sometimes there's a generations list
                     gens = j.get("generations") or j.get("generated")
@@ -1121,6 +1200,21 @@ async def call_llm(client: Any, system: str, user: str) -> dict:
     )
     text = "".join(b.text for b in msg.content if hasattr(b, "text"))
     return robust_json_loads(text)
+
+
+async def call_llm_with_fallbacks(clients: list[Any], system: str, user: str) -> dict:
+    last_error: Exception | None = None
+    for client in clients:
+        if client is None:
+            continue
+        try:
+            return await call_llm(client, system, user)
+        except Exception as exc:
+            last_error = exc
+            print(f"[call_llm_with_fallbacks] client failed; falling back: {exc}", flush=True)
+    if last_error is not None:
+        raise last_error
+    raise ValueError("No LLM clients available.")
 
 
 def composite_score(s: dict, c: dict) -> float:
@@ -1294,8 +1388,10 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         # ── Step 1 · Consensus Extraction ─────────────────────────────
         yield event({"step": 1, "status": "loading"})
         s1 = None
-        async for chunk in keep_alive(call_llm(
+        async for chunk in keep_alive(call_llm_with_fallbacks([
             client_cheap,
+            client_smart,
+        ],
             f"You are SARE, a strategic adversarial reasoning engine. Extract the hidden consensus frame most people, executives, or generic AI systems would assume in the domain '{domain_key}'. "
             "CRITICAL OUTPUT QUALITY RULES:\n"
             "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
@@ -1338,8 +1434,10 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
 
         # Step 1.5 · Question Type Detection
         qt_result = None
-        async for chunk in keep_alive(call_llm(
+        async for chunk in keep_alive(call_llm_with_fallbacks([
             client_cheap,
+            client_smart,
+        ],
             "Classify the user's problem into one of exactly four buckets for an adversarial framing pipeline. "
             "Buckets: operational, analytical, strategic, adversarial. "
             "Respond ONLY with valid JSON: "
@@ -1455,7 +1553,7 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
                 "Each output should be a strategic interpretation or pressure move, not a solution framework."
             )
         )
-        async for chunk in keep_alive(call_llm(client_smart, lens_system, lens_user)):
+        async for chunk in keep_alive(call_llm_with_fallbacks([client_smart, client_cheap], lens_system, lens_user)):
             if isinstance(chunk, str):
                 yield chunk
             elif isinstance(chunk, dict) and "_result" in chunk:
@@ -1510,7 +1608,7 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
                 + f"Rejected prior approaches:\n{json.dumps(approaches, ensure_ascii=False)}"
             )
             s2_retry = None
-            async for chunk in keep_alive(call_llm(client_smart, lens_system, retry_user)):
+            async for chunk in keep_alive(call_llm_with_fallbacks([client_smart, client_cheap], lens_system, retry_user)):
                 if isinstance(chunk, str):
                     yield chunk
                 elif isinstance(chunk, dict) and "_result" in chunk:
@@ -1552,8 +1650,10 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         # ── Step 3 · Validity Scoring ─────────────────────────────────
         yield event({"step": 3, "status": "loading"})
         s3 = None
-        async for chunk in keep_alive(call_llm(
+        async for chunk in keep_alive(call_llm_with_fallbacks([
             client_cheap,
+            client_smart,
+        ],
             "Score each approach on 4 dimensions as 0.0-1.0 floats. "
             "novelty: how non-obvious, insight-dense, and cognitively disruptive the lens is. "
             "feasibility: how defensible the reasoning is under real-world incentives, constraints, and institutional behavior. "
@@ -1592,8 +1692,10 @@ async def analysis_stream_generator(req: AnalyzeRequest, save_key: str | None = 
         # ── Step 4 · Adversarial Critic Pass ──────────────────────────
         yield event({"step": 4, "status": "loading"})
         s4 = None
-        async for chunk in keep_alive(call_llm(
+        async for chunk in keep_alive(call_llm_with_fallbacks([
             client_smart,
+            client_cheap,
+        ],
             "You are SARE's hostile reviewer. Break each lens by finding where even the adversarial critique overreaches. "
             "CRITICAL OUTPUT QUALITY RULES:\n"
             "1. EVERY OUTPUT MUST BE SEMANTICALLY COHERENT. Reject random noun chains, disconnected abstractions, or meaningless intensity wording. Every sentence must have clear meaning.\n"
@@ -1705,7 +1807,7 @@ async def v1_analyze(request: Request, req: AnalyzeRequest):
     if not req.problem.strip():
         raise HTTPException(status_code=400, detail="problem cannot be empty")
 
-    key = validate_api_key_or_raise(request)
+    key, _key_info = validate_api_key_or_raise(request, required_scope="analysis:write")
 
     # increment usage now (counts this call)
     auth.increment_usage(key)
@@ -2011,17 +2113,92 @@ async def auth_logout_all_sessions(request: Request):
 
 @app.post(
     "/v1/keys",
-    response_model=ApiKeyResponse,
+    response_model=ApiKeyIssueResponse,
     summary="Create API key",
-    description="Generates a new free-tier API key for the authenticated, verified user after recent re-authentication.",
+    description="Generates a scoped API key, returns the plaintext key once, and stores only the hashed secret server-side.",
     tags=["auth"],
     responses=COMMON_ERROR_RESPONSES,
 )
-async def v1_keys(request: Request):
+async def v1_keys(request: Request, body: ApiKeyCreateRequest):
     user, session, _ = require_verified_user(request)
     require_recent_reauth(request, user["id"], session["id"])
-    key = auth.generate_key(name=user["email"], tier="free", owner_user_id=user["id"])
-    return {"key": key}
+    try:
+        issued = auth.generate_key(
+            name=body.name or user["email"],
+            tier="free",
+            owner_user_id=user["id"],
+            environment=body.environment,
+            scopes=body.scopes,
+            expires_at=body.expires_at,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return issued
+
+
+@app.get(
+    "/v1/keys",
+    response_model=ApiKeyListResponse,
+    summary="List API keys",
+    description="Returns all API keys for the authenticated account without revealing plaintext secrets.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def v1_list_keys(request: Request):
+    user, session, _ = require_verified_user(request)
+    require_recent_reauth(request, user["id"], session["id"])
+    return {"items": auth.list_api_keys(user["id"])}
+
+
+@app.post(
+    "/v1/keys/{key_id}/disable",
+    response_model=ApiKeyRecordResponse,
+    summary="Disable or enable API key",
+    description="Toggles whether an API key can be used without deleting the record.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def v1_disable_key(key_id: str, request: Request, body: ApiKeyToggleRequest):
+    user, session, _ = require_verified_user(request)
+    require_recent_reauth(request, user["id"], session["id"])
+    ok, payload = auth.disable_api_key(user["id"], key_id, body.disabled)
+    if not ok:
+        raise HTTPException(status_code=404, detail="API key not found.")
+    return payload
+
+
+@app.post(
+    "/v1/keys/{key_id}/revoke",
+    response_model=ApiKeyRecordResponse,
+    summary="Revoke API key",
+    description="Permanently revokes an API key.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def v1_revoke_key(key_id: str, request: Request):
+    user, session, _ = require_verified_user(request)
+    require_recent_reauth(request, user["id"], session["id"])
+    ok, payload = auth.revoke_api_key(user["id"], key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="API key not found.")
+    return payload
+
+
+@app.post(
+    "/v1/keys/{key_id}/rotate",
+    response_model=ApiKeyIssueResponse,
+    summary="Rotate API key",
+    description="Revokes the old API key and issues a replacement plaintext key once.",
+    tags=["auth"],
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def v1_rotate_key(key_id: str, request: Request, body: ApiKeyRotateRequest):
+    user, session, _ = require_verified_user(request)
+    require_recent_reauth(request, user["id"], session["id"])
+    ok, payload = auth.rotate_api_key(user["id"], key_id, name=body.name, expires_at=body.expires_at)
+    if not ok:
+        raise HTTPException(status_code=404, detail="API key not found.")
+    return payload
 
 
 @app.get(
@@ -2033,7 +2210,7 @@ async def v1_keys(request: Request):
     responses=COMMON_ERROR_RESPONSES,
 )
 async def v1_usage(request: Request):
-    key = validate_api_key_or_raise(request)
+    key, _key_info = validate_api_key_or_raise(request, required_scope="usage:read")
     u = auth.usage_info(key)
     return u or {}
 
@@ -2047,7 +2224,7 @@ async def v1_usage(request: Request):
     responses=COMMON_ERROR_RESPONSES,
 )
 async def v1_analyses(request: Request, page: int = 1):
-    key = validate_api_key_or_raise(request)
+    key, _key_info = validate_api_key_or_raise(request, required_scope="analysis:read")
     return list_analyses(key, page=max(1, page), per_page=20)
 
 
@@ -2060,7 +2237,7 @@ async def v1_analyses(request: Request, page: int = 1):
     responses=COMMON_ERROR_RESPONSES,
 )
 async def v1_analysis_detail(analysis_id: str, request: Request):
-    key = validate_api_key_or_raise(request)
+    key, _key_info = validate_api_key_or_raise(request, required_scope="analysis:read")
     record = get_analysis_for_key(key, analysis_id)
     if not record:
         raise HTTPException(status_code=404, detail="Analysis not found.")

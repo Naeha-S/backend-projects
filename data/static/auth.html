@@ -90,6 +90,32 @@
     color: var(--secondary);
     word-break: break-all;
   }
+  .warning-banner {
+    border: 1px solid rgba(255, 171, 0, 0.35);
+    background: rgba(255, 171, 0, 0.08);
+    color: var(--secondary);
+    padding: 0.9rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .key-table {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .key-item {
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 1rem;
+  }
+  .key-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.85rem;
+  }
   @media (max-width: 1100px) {
     .auth-shell,
     .auth-grid,
@@ -214,9 +240,23 @@
             </div>
             <div style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
               <div class="mono-label" style="margin-bottom:0.75rem;">Generate Developer Key</div>
+              <div class="field-row" style="margin-bottom:1rem;">
+                <input id="keyName" type="text" placeholder="Key label: CI deploy, laptop, dashboard">
+                <select id="keyEnvironment">
+                  <option value="live">Live</option>
+                  <option value="test">Test</option>
+                </select>
+              </div>
+              <div class="field-row" style="margin-bottom:1rem;">
+                <input id="keyScopes" type="text" placeholder="Scopes: read,write or admin">
+                <input id="keyExpiry" type="text" placeholder="Expiry ISO datetime (optional)">
+              </div>
+              <div class="warning-banner">Full key value is shown once. Save it now. The server stores only a hashed secret and cannot show it again later.</div>
               <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
                 <button id="generateKeyBtn">Generate Key</button>
                 <button id="copyKeyBtn" class="secondary">Copy Key</button>
+                <button id="storeKeyBtn" class="secondary">Store In Browser</button>
+                <button id="loadKeysBtn" class="secondary">Load Key Inventory</button>
                 <button id="jumpDashboardBtn" class="secondary">Open Dashboard</button>
               </div>
               <div id="generatedKey" class="key-display" style="margin-top:1rem;">No key generated yet.</div>
@@ -257,6 +297,20 @@
             <div id="sessionList" class="session-list">
               <div class="session-item">
                 <div class="mono-label">No session inventory loaded.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="intel-card">
+          <div class="intel-card-header">
+            <span>KEY_VAULT // ROTATE_DISABLE_REVOKE</span>
+            <span>LIFECYCLE</span>
+          </div>
+          <div class="intel-card-body">
+            <div id="keyInventory" class="key-table">
+              <div class="key-item">
+                <div class="mono-label">No key inventory loaded.</div>
               </div>
             </div>
           </div>
@@ -307,7 +361,7 @@
 
 <script>
 const nextTarget = new URLSearchParams(window.location.search).get("next") || "/";
-const state = { current: null, currentSessionId: null, reauthReady: false, key: null, mfaSetup: null };
+const state = { current: null, currentSessionId: null, reauthReady: false, key: null, currentKeyRecord: null, mfaSetup: null, keys: [] };
 
 const els = {
   nextTargetLabel: document.getElementById("nextTargetLabel"),
@@ -325,9 +379,14 @@ const els = {
   verifyToken: document.getElementById("verifyToken"),
   reauthPassword: document.getElementById("reauthPassword"),
   reauthTotp: document.getElementById("reauthTotp"),
+  keyName: document.getElementById("keyName"),
+  keyEnvironment: document.getElementById("keyEnvironment"),
+  keyScopes: document.getElementById("keyScopes"),
+  keyExpiry: document.getElementById("keyExpiry"),
   generatedKey: document.getElementById("generatedKey"),
   mfaConsole: document.getElementById("mfaConsole"),
   sessionList: document.getElementById("sessionList"),
+  keyInventory: document.getElementById("keyInventory"),
 };
 
 els.nextTargetLabel.textContent = `NEXT: ${nextTarget}`;
@@ -490,13 +549,75 @@ async function reauth() {
 }
 
 async function generateKey() {
-  const payload = await api("/v1/keys", { method: "POST" });
-  state.key = payload.key || null;
+  const payload = await api("/v1/keys", {
+    method: "POST",
+    body: JSON.stringify({
+      name: els.keyName.value.trim() || "default",
+      environment: els.keyEnvironment.value,
+      scopes: (els.keyScopes.value.trim() || "read,write").split(",").map((s) => s.trim()).filter(Boolean),
+      expires_at: els.keyExpiry.value.trim() || null,
+    }),
+  });
+  state.key = payload.plaintext_key || null;
+  state.currentKeyRecord = payload;
   if (state.key) {
-    localStorage.setItem("afe-api-key", state.key);
     els.generatedKey.textContent = state.key;
-    showMessage("Developer key generated and saved to localStorage.");
+    showMessage(`Developer key issued once.\nkey_id=${payload.id}\nenvironment=${payload.environment}\nscopes=${(payload.scopes || []).join(", ")}`);
   }
+  await loadKeys();
+}
+
+function renderKeyInventory(items) {
+  state.keys = items || [];
+  els.keyInventory.innerHTML = state.keys.map((item) => `
+    <div class="key-item">
+      <div class="mono-label">${item.name} // ${item.environment.toUpperCase()} // ${item.active ? "ACTIVE" : "INACTIVE"}</div>
+      <div class="session-line">id=${item.id}</div>
+      <div class="session-line">masked=${item.masked_key || "-"}</div>
+      <div class="session-line">scopes=${(item.scopes || []).join(", ") || "-"}</div>
+      <div class="session-line">created=${fmt(item.created_at)}</div>
+      <div class="session-line">last_used=${fmt(item.last_used_at)}</div>
+      <div class="session-line">expires=${fmt(item.expires_at)}</div>
+      <div class="session-line">rotation_due=${fmt(item.rotation_due_at)}</div>
+      <div class="key-actions">
+        <button data-key-action="rotate" data-key-id="${item.id}">Rotate</button>
+        <button data-key-action="disable" data-key-id="${item.id}">${item.disabled_at ? "Enable" : "Disable"}</button>
+        <button data-key-action="revoke" data-key-id="${item.id}" class="secondary">Revoke</button>
+      </div>
+    </div>
+  `).join("") || `<div class="key-item"><div class="mono-label">No keys found.</div></div>`;
+}
+
+async function loadKeys() {
+  const payload = await api("/v1/keys", { method: "GET" });
+  renderKeyInventory(payload.items || []);
+}
+
+async function rotateKey(keyId) {
+  const payload = await api(`/v1/keys/${encodeURIComponent(keyId)}/rotate`, {
+    method: "POST",
+    body: JSON.stringify({
+      name: els.keyName.value.trim() || null,
+      expires_at: els.keyExpiry.value.trim() || null,
+    }),
+  });
+  state.key = payload.plaintext_key || null;
+  state.currentKeyRecord = payload;
+  els.generatedKey.textContent = state.key || "Rotation succeeded. Save the new key now.";
+  await loadKeys();
+}
+
+async function toggleKey(keyId, disabled) {
+  await api(`/v1/keys/${encodeURIComponent(keyId)}/disable`, {
+    method: "POST",
+    body: JSON.stringify({ disabled }),
+  });
+  await loadKeys();
+}
+
+async function revokeKey(keyId) {
+  await api(`/v1/keys/${encodeURIComponent(keyId)}/revoke`, { method: "POST" });
+  await loadKeys();
 }
 
 async function loadSessions() {
@@ -533,11 +654,6 @@ async function logoutOthers() {
 }
 
 function returnToApp() {
-  if (state.key) {
-    const joiner = nextTarget.includes("?") ? "&" : "?";
-    window.location.href = `${nextTarget}${joiner}key=${encodeURIComponent(state.key)}`;
-    return;
-  }
   window.location.href = nextTarget;
 }
 
@@ -545,6 +661,12 @@ function copyKey() {
   if (!state.key) return;
   navigator.clipboard.writeText(state.key);
   showMessage("Developer key copied to clipboard.");
+}
+
+function storeKey() {
+  if (!state.key) return;
+  localStorage.setItem("afe-api-key", state.key);
+  showMessage("Developer key stored in browser localStorage.");
 }
 
 document.getElementById("signupBtn").addEventListener("click", () => signup().catch((err) => showMessage(err.message)));
@@ -555,19 +677,26 @@ document.getElementById("startMfaBtn").addEventListener("click", () => startMfa(
 document.getElementById("confirmMfaBtn").addEventListener("click", () => confirmMfa().catch((err) => showMessage(err.message)));
 document.getElementById("reauthBtn").addEventListener("click", () => reauth().catch((err) => showMessage(err.message)));
 document.getElementById("generateKeyBtn").addEventListener("click", () => generateKey().catch((err) => showMessage(err.message)));
+document.getElementById("storeKeyBtn").addEventListener("click", storeKey);
 document.getElementById("refreshSessionBtn").addEventListener("click", () => refreshSession());
 document.getElementById("loadSessionsBtn").addEventListener("click", () => loadSessions().catch((err) => showMessage(err.message)));
+document.getElementById("loadKeysBtn").addEventListener("click", () => loadKeys().catch((err) => showMessage(err.message)));
 document.getElementById("logoutBtn").addEventListener("click", () => logout().catch((err) => showMessage(err.message)));
 document.getElementById("logoutAllBtn").addEventListener("click", () => logoutOthers().catch((err) => showMessage(err.message)));
 document.getElementById("continueBtn").addEventListener("click", returnToApp);
 document.getElementById("jumpDashboardBtn").addEventListener("click", () => {
-  if (state.key) {
-    window.location.href = `/dashboard?key=${encodeURIComponent(state.key)}`;
-    return;
-  }
   window.location.href = "/dashboard";
 });
 document.getElementById("copyKeyBtn").addEventListener("click", copyKey);
+document.getElementById("keyInventory").addEventListener("click", (event) => {
+  const target = event.target.closest("button[data-key-action]");
+  if (!target) return;
+  const keyId = target.getAttribute("data-key-id");
+  const action = target.getAttribute("data-key-action");
+  if (action === "rotate") rotateKey(keyId).catch((err) => showMessage(err.message));
+  if (action === "disable") toggleKey(keyId, target.textContent.trim().toLowerCase() === "disable").catch((err) => showMessage(err.message));
+  if (action === "revoke") revokeKey(keyId).catch((err) => showMessage(err.message));
+});
 
 refreshSession();
 </script>

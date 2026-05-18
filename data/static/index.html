@@ -322,7 +322,7 @@
             <div style="border-top: 1px solid var(--border); padding-top: 1.5rem;">
               <div class="mono-label" style="margin-bottom: 0.75rem;">Active Signature Key Override</div>
               <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                <input id="manualKeyInput" type="password" placeholder="Provide signature key (afe-...)" style="flex: 1; min-width: 250px; margin-bottom: 0; padding: 0.75rem 1.25rem;">
+                <input id="manualKeyInput" type="password" placeholder="Provide signature key (pk_live_...)" style="flex: 1; min-width: 250px; margin-bottom: 0; padding: 0.75rem 1.25rem;">
                 <button id="saveKeyBtn" class="action-btn" style="font-size: 0.75rem; padding: 0.5rem 2rem;">Save Signature</button>
               </div>
               <div id="saveStatus" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--secondary); margin-top: 0.5rem;"></div>
@@ -548,12 +548,6 @@ async function updateActualUsage() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const paramKey = urlParams.get('key');
-  if (paramKey) {
-    localStorage.setItem('afe-api-key', paramKey);
-  }
-  
   updateActualUsage();
 
   const genKeyBtn = document.getElementById('genKeyBtn');
@@ -562,7 +556,12 @@ document.addEventListener('DOMContentLoaded', () => {
       genKeyBtn.disabled = true;
       genKeyBtn.textContent = 'GENERATING...';
       try {
-        const r = await fetch('/v1/keys', {method: 'POST', credentials: 'include'});
+        const r = await fetch('/v1/keys', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'engine', environment: 'live', scopes: ['read', 'write'] }),
+        });
         const j = await r.json();
         if (!r.ok) {
           const message = j?.error?.message || j?.detail || 'Authentication required';
@@ -572,11 +571,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           throw new Error(message);
         }
-        document.getElementById('keyDisplay').textContent = ' [' + (j.key || 'ERR') + '] (AUTO_SAVED)';
+        document.getElementById('keyDisplay').textContent = ' [' + (j.plaintext_key || 'ERR') + '] (SAVE_NOW)';
         genKeyBtn.textContent = 'KEY_ISSUED';
         
-        if (j.key) {
-          localStorage.setItem('afe-api-key', j.key);
+        if (j.plaintext_key) {
+          localStorage.setItem('afe-api-key', j.plaintext_key);
           updateActualUsage();
         }
       } catch(e) {

@@ -51,13 +51,31 @@ class AuthToken(Base):
     extra: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
 
+class AuthSetting(Base):
+    __tablename__ = "auth_settings"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class ApiKey(Base):
     __tablename__ = "api_keys"
 
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    secret_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    display_prefix: Mapped[str] = mapped_column(String(32), nullable=False)
     name: Mapped[str] = mapped_column(String(320), nullable=False)
     tier: Mapped[str] = mapped_column(String(32), default="free", nullable=False)
     owner_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    scopes: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    environment: Mapped[str] = mapped_column(String(16), default="live", index=True, nullable=False)
+    last_used_at: Mapped[str | None] = mapped_column(String(64))
+    last_used_ip: Mapped[str | None] = mapped_column(String(128))
+    expires_at: Mapped[str | None] = mapped_column(String(64))
+    rotated_from_key_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    rotation_due_at: Mapped[str | None] = mapped_column(String(64))
+    revoked_at: Mapped[str | None] = mapped_column(String(64), index=True)
+    disabled_at: Mapped[str | None] = mapped_column(String(64), index=True)
     calls_today: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     calls_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_reset: Mapped[str] = mapped_column(String(32), nullable=False)

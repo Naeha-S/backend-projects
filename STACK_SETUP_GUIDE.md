@@ -179,6 +179,7 @@ What you do:
 3. Ensure `COOKIE_SECURE=true` in production.
 4. Deploy the API service.
 5. Add a second Railway worker service for RQ when background jobs are enabled.
+6. If Railway has a custom Start Command saved, clear it so the repo `Procfile` is used.
 
 Recommended Railway services:
 

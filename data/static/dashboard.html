@@ -88,7 +88,7 @@
           Provide your developer signature key to unlock secure local databases and cached inference runs. Generate a key from the Core Engine console if required.
         </p>
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
-          <input id="apiKey" type="password" placeholder="afe-..." autocomplete="off" style="flex: 1; min-width: 250px; margin-bottom: 0; padding: 1rem;">
+          <input id="apiKey" type="password" placeholder="pk_live_..." autocomplete="off" style="flex: 1; min-width: 250px; margin-bottom: 0; padding: 1rem;">
           <button id="loadBtn" style="font-size: 1rem; padding: 0.5rem 2rem;">Authenticate</button>
           <button id="toggleBtn" class="secondary" style="font-size: 1rem; padding: 0.5rem 1.5rem;">Show</button>
           <button id="clearBtn" class="secondary" style="border-color: var(--border); font-size: 1rem; padding: 0.5rem 1.5rem;">Reset</button>
@@ -239,7 +239,7 @@ async function api(path) {
   const res = await fetch(path, { headers: { "x-api-key": key } });
   let payload = null;
   try { payload = await res.json(); } catch (_) {}
-  if (!res.ok) throw new Error(payload?.error || payload?.detail || `Error ${res.status}`);
+  if (!res.ok) throw new Error(payload?.error?.message || payload?.detail || `Error ${res.status}`);
   return payload;
 }
 
@@ -428,11 +428,10 @@ els.clearBtn.onclick = () => {
 els.prevBtn.onclick = () => { if (state.page > 1) { state.page--; els.loadBtn.click(); } };
 els.nextBtn.onclick = () => { if (state.hasMore) { state.page++; els.loadBtn.click(); } };
 
-// Auto-authenticate if key is present in query or local storage
 document.addEventListener('DOMContentLoaded', () => {
-  const key = new URLSearchParams(window.location.search).get('key');
-  if (key) {
-    els.apiKey.value = key;
+  const savedKey = localStorage.getItem('afe-api-key');
+  if (savedKey) {
+    els.apiKey.value = savedKey;
     els.loadBtn.click();
   }
 });
